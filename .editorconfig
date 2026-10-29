@@ -1,0 +1,15 @@
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+charset = utf-8
+
+# GitHub Swift 스타일 가이드: 탭 들여쓰기
+[*.swift]
+indent_style = tab
+
+[*.{yml,yaml,md}]
+indent_style = space
+indent_size = 2

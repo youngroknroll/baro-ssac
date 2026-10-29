@@ -1,0 +1,37 @@
+# 기준: https://github.com/github/swift-style-guide
+# 실행: swiftlint   (brew install swiftlint)
+
+included:
+  - Sources
+  - Tests
+excluded:
+  - .build
+
+opt_in_rules:
+  - explicit_top_level_acl        # 7. 최상위 정의에 접근 제어 명시
+  - force_unwrapping              # 4. 강제 언래핑 금지
+  - implicitly_unwrapped_optional # 5. 암시적 언래핑 옵셔널 금지
+  - implicit_getter               # 6. 읽기 전용 프로퍼티는 get 생략
+  - final_test_case               # 11. 테스트 클래스도 final
+  - prefer_self_in_static_references
+  - vertical_whitespace_closing_braces
+  - vertical_whitespace_opening_braces
+  - trailing_closure
+  - unneeded_parentheses_in_closure_argument
+
+disabled_rules:
+  - trailing_comma                # 여러 줄 컬렉션의 끝 쉼표는 허용 (swiftformat --commas always 와 일치)
+
+line_length:
+  warning: 120
+  error: 160
+  ignores_comments: true
+
+identifier_name:
+  min_length: 1                   # fs, p, g 같은 짧은 지역 이름 허용
+  excluded: [id, x, y]
+
+type_body_length:
+  warning: 250
+file_length:
+  warning: 400

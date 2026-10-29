@@ -1,0 +1,49 @@
+# ── macOS ──────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# ── Swift Package Manager ──────────────────────────────
+# 빌드 산출물과 SwiftPM/Xcode가 만드는 로컬 상태
+.build/
+.swiftpm/
+/Packages/
+# Package.resolved 는 앱이므로 커밋한다 (의존성 버전 고정)
+
+# ── Xcode ──────────────────────────────────────────────
+DerivedData/
+build/
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+# 공유 스킴(xcshareddata)은 커밋한다
+
+# ── 배포 산출물 ────────────────────────────────────────
+*.app
+*.dmg
+*.xcarchive
+*.ipa
+*.dSYM
+*.dSYM.zip
+
+# ── 코드 서명·공증 비밀 (절대 커밋 금지) ───────────────
+*.p12
+*.p8
+*.cer
+*.certSigningRequest
+*.mobileprovision
+*.provisionprofile
+.env
+.env.*
+
+# ── 에디터 ─────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*~

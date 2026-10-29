@@ -1,0 +1,28 @@
+# 기준: https://github.com/github/swift-style-guide
+# 실행: swiftformat .   (brew install swiftformat)
+
+--swiftversion 5.9
+
+# 1. Whitespace: 탭 들여쓰기, 끝 공백 제거, 파일 끝 개행
+--indent tab
+--trimwhitespace always
+--linebreaks lf
+
+# 9. self는 필요한 곳에만
+--self remove
+
+# 7. 최상위 정의의 명시적 접근 제어를 지운다는 규칙은 끈다 (가이드와 충돌)
+--disable redundantInternal
+
+# 6·12. 암시적 getter, 불필요한 타입 매개변수 생략은 기본 규칙(redundantGet, redundantType)으로 처리됨
+
+# 끝 쉼표 허용 (여러 줄 배열에서 diff가 작아짐)
+--commas always
+
+# 문서 주석은 ///, 닫는 괄호 정렬
+--closingparen balanced
+--wraparguments before-first
+--wrapcollections before-first
+--maxwidth 120
+
+--exclude .build
