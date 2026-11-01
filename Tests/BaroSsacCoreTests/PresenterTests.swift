@@ -2,7 +2,13 @@ import XCTest
 @testable import BaroSsacCore
 
 internal final class PresenterTests: XCTestCase {
-	let caches = CleanupRule(name: "app-caches", root: "/u/Library/Caches", risk: .low, title: "앱 캐시", description: "앱이 다시 만듦")
+	let caches = CleanupRule(
+		name: "app-caches",
+		root: "/u/Library/Caches",
+		risk: .low,
+		title: "앱 캐시",
+		description: "앱이 다시 만듦"
+	)
 	let logs = CleanupRule(name: "user-logs", root: "/u/Library/Logs", risk: .low, title: "오래된 로그")
 	let backups = CleanupRule(name: "ios-backups", root: "/u/B", risk: .high, title: "iPhone 백업")
 	var rules: [CleanupRule] { [caches, logs, backups] }
@@ -55,6 +61,27 @@ internal final class PresenterTests: XCTestCase {
 		XCTAssertTrue(p.isSelected("/u/Library/Caches/a"))
 		XCTAssertFalse(p.isSelected("/u/B/x"))
 		XCTAssertEqual(p.selectedBytes, 100)
+	}
+
+	func testItemsInUseByRunningAppsAreNotPreselectedAndAreLabelled() {
+		var p = Presenter(rules: rules)
+		p.load(report(
+			ScanItem(
+				ruleName: "app-caches",
+				path: "/u/Library/Caches/com.spotify.client",
+				sizeBytes: 100,
+				risk: .low,
+				inUseBy: "com.spotify.client"
+			),
+			ScanItem(ruleName: "app-caches", path: "/u/Library/Caches/Homebrew", sizeBytes: 50, risk: .low)
+		))
+
+		XCTAssertFalse(p.isSelected("/u/Library/Caches/com.spotify.client"))
+		XCTAssertTrue(p.isSelected("/u/Library/Caches/Homebrew"))
+		XCTAssertEqual(p.selectedBytes, 50)
+		let children = Dictionary(uniqueKeysWithValues: p.groups()[0].children.map { ($0.path, $0.inUseBy) })
+		XCTAssertEqual(children["/u/Library/Caches/com.spotify.client"], "com.spotify.client")
+		XCTAssertEqual(children["/u/Library/Caches/Homebrew"], .some(nil))
 	}
 
 	func testTogglingAGroupTogglesAllItsChildren() {

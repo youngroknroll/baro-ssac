@@ -167,6 +167,28 @@ internal final class ScanUseCaseTests: XCTestCase {
 		XCTAssertEqual(Set(report.skipped.map { $0.reason }), [.excluded])
 	}
 
+	func testItemsBelongingToRunningAppsAreMarkedInUse() {
+		let fs = InMemoryFileSystem([
+			"/u/Library/Caches/com.spotify.client/a": 100,
+			"/u/Library/Caches/Homebrew/b": 50,
+		])
+		let running = FakeRunningApps(ids: ["com.spotify.client"])
+
+		let report = ScanUseCase(fs: fs, clock: FixedClock(fixed: now), runningApps: running).execute([caches])
+
+		let inUse = Dictionary(uniqueKeysWithValues: report.items.map { ($0.path, $0.inUseBy) })
+		XCTAssertEqual(inUse["/u/Library/Caches/com.spotify.client"], "com.spotify.client")
+		XCTAssertEqual(inUse["/u/Library/Caches/Homebrew"], .some(nil))
+	}
+
+	func testWithoutRunningAppsPortNothingIsMarkedInUse() {
+		let fs = InMemoryFileSystem(["/u/Library/Caches/com.spotify.client/a": 100])
+
+		let report = scan(fs, [caches])
+
+		XCTAssertNil(report.items.first?.inUseBy)
+	}
+
 	func testProgressCallbackReportsEachRuleAsItFinishes() {
 		let logs = CleanupRule(name: "logs", root: "/u/Library/Logs", risk: .low)
 		let fs = InMemoryFileSystem(["/u/Library/Caches/a/f": 1])

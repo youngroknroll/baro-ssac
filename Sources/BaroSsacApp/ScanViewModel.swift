@@ -12,6 +12,7 @@ internal final class ScanViewModel: ObservableObject {
 	@Published var failures: [CleanEntry] = []
 
 	private let container: AppContainer
+	private var cleanNotice: String?
 
 	init(container: AppContainer) {
 		self.container = container
@@ -75,6 +76,10 @@ internal final class ScanViewModel: ObservableObject {
 		} else {
 			status = "확보 가능"
 		}
+		if let notice = cleanNotice {
+			status = notice
+			cleanNotice = nil
+		}
 		isBusy = false
 	}
 
@@ -103,7 +108,13 @@ internal final class ScanViewModel: ObservableObject {
 
 	private func finishClean(_ result: CleanResult) {
 		failures = result.entries.filter { $0.outcome == .failed }
-		status = "\(formatSize(result.freedBytes)) 를 휴지통으로 보냈습니다 · 비우면 공간이 확보됩니다"
+		var text = "\(formatSize(result.freedBytes)) 를 휴지통으로 보냈습니다 · 비우면 공간이 확보됩니다"
+		let inUse = result.entries.filter { $0.outcome == .inUse }.count
+		if inUse > 0 {
+			text += " · 실행 중이라 건너뛴 항목 \(inUse)개"
+		}
+		// 바로 이어지는 재스캔이 상태 문구를 덮어쓰므로, 재스캔이 끝난 뒤에 보여 준다.
+		cleanNotice = text
 		isBusy = false
 		scan()
 	}

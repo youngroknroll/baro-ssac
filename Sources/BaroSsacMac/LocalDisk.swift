@@ -12,8 +12,9 @@ public struct LocalDisk: DiskPort {
 
 	public func usage() -> DiskUsage? {
 		let url = URL(fileURLWithPath: path)
+		let keys: Set<URLResourceKey> = [.volumeTotalCapacityKey, .volumeAvailableCapacityForImportantUsageKey]
 		guard
-			let values = try? url.resourceValues(forKeys: [.volumeTotalCapacityKey, .volumeAvailableCapacityForImportantUsageKey]),
+			let values = try? url.resourceValues(forKeys: keys),
 			let total = values.volumeTotalCapacity,
 			let free = values.volumeAvailableCapacityForImportantUsage
 		else { return nil }

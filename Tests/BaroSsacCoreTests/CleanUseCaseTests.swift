@@ -3,7 +3,11 @@ import XCTest
 
 internal final class CleanUseCaseTests: XCTestCase {
 	let caches = CleanupRule(name: "app-caches", root: "/u/Library/Caches", risk: .low)
-	let backups = CleanupRule(name: "ios-backups", root: "/u/Library/Application Support/MobileSync/Backup", risk: .high)
+	let backups = CleanupRule(
+		name: "ios-backups",
+		root: "/u/Library/Application Support/MobileSync/Backup",
+		risk: .high
+	)
 	let npm = CleanupRule(name: "npm-cache", root: "/u/.npm/_cacache", risk: .low, granularity: .root)
 	var rules: [CleanupRule] { [caches, backups, npm] }
 
@@ -143,6 +147,55 @@ internal final class CleanUseCaseTests: XCTestCase {
 
 		XCTAssertEqual(trash.trashed, [])
 		XCTAssertEqual(result.entries.first?.outcome, .stale)
+	}
+
+	/// 실행 중인 앱의 캐시를 지우면 앱이 오작동할 수 있으므로, 사용자가 골랐어도 보내지 않는다.
+	func testItemOfAppRunningAtCleanTimeIsNotTrashed() {
+		let trash = SpyTrash()
+		let items = [item("/u/Library/Caches/com.spotify.client"), item("/u/Library/Caches/Homebrew", 40)]
+		let fs = InMemoryFileSystem(Dictionary(uniqueKeysWithValues: items.map { ($0.path + "/f", $0.sizeBytes) }))
+		let useCase = CleanUseCase(
+			trash: trash, fs: fs, rules: rules,
+			runningApps: FakeRunningApps(ids: ["com.spotify.client"])
+		)
+
+		let result = useCase.execute(items, dryRun: false)
+
+		XCTAssertEqual(trash.trashed, ["/u/Library/Caches/Homebrew"])
+		XCTAssertEqual(result.entries.map { $0.outcome }, [.inUse, .trashed])
+		XCTAssertEqual(result.freedBytes, 40)
+	}
+
+	/// 스캔 때는 실행 중이었어도 정리 시점에 앱을 껐다면 보낸다. 판단 기준은 '지금'이다.
+	func testItemOfAppThatQuitSinceScanIsTrashed() {
+		let trash = SpyTrash()
+		let scanned = ScanItem(
+			ruleName: "app-caches",
+			path: "/u/Library/Caches/com.spotify.client",
+			sizeBytes: 100,
+			risk: .low,
+			inUseBy: "com.spotify.client"
+		)
+		let fs = InMemoryFileSystem([scanned.path + "/f": 100])
+		let useCase = CleanUseCase(trash: trash, fs: fs, rules: rules, runningApps: FakeRunningApps(ids: []))
+
+		_ = useCase.execute([scanned], dryRun: false)
+
+		XCTAssertEqual(trash.trashed, [scanned.path])
+	}
+
+	func testDryRunAlsoReportsInUse() {
+		let items = [item("/u/Library/Caches/com.spotify.client")]
+		let fs = InMemoryFileSystem([items[0].path + "/f": 100])
+		let useCase = CleanUseCase(
+			trash: SpyTrash(), fs: fs, rules: rules,
+			runningApps: FakeRunningApps(ids: ["com.spotify.client"])
+		)
+
+		let result = useCase.execute(items)
+
+		XCTAssertEqual(result.entries.first?.outcome, .inUse)
+		XCTAssertEqual(result.freedBytes, 0)
 	}
 
 	func testTrashFailureIsRecordedAndOthersContinue() {

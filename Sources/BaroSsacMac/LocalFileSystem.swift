@@ -73,7 +73,8 @@ public struct LocalFileSystem: FileSystemPort {
 				}
 			}
 		}
-		return EntryStat(sizeBytes: size, modifiedAt: Date(timeIntervalSince1970: TimeInterval(newest)), isSymlink: false)
+		let modifiedAt = Date(timeIntervalSince1970: TimeInterval(newest))
+		return EntryStat(sizeBytes: size, modifiedAt: modifiedAt, isSymlink: false)
 	}
 
 	// MARK: - helpers
@@ -101,7 +102,8 @@ public struct LocalFileSystem: FileSystemPort {
 		if e.domain == NSCocoaErrorDomain && e.code == NSFileReadNoPermissionError { return true }
 		if e.domain == NSPOSIXErrorDomain && (e.code == Int(EACCES) || e.code == Int(EPERM)) { return true }
 		if let underlying = e.userInfo[NSUnderlyingErrorKey] as? NSError {
-			return underlying.domain == NSPOSIXErrorDomain && (underlying.code == Int(EACCES) || underlying.code == Int(EPERM))
+			return underlying.domain == NSPOSIXErrorDomain
+				&& (underlying.code == Int(EACCES) || underlying.code == Int(EPERM))
 		}
 		return false
 	}

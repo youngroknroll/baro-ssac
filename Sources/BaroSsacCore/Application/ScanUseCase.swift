@@ -5,10 +5,12 @@ public typealias ScanProgress = (_ done: Int, _ total: Int, _ rule: CleanupRule)
 public struct ScanUseCase {
 	private let fs: FileSystemPort
 	private let clock: ClockPort
+	private let runningApps: RunningAppsPort?
 
-	public init(fs: FileSystemPort, clock: ClockPort) {
+	public init(fs: FileSystemPort, clock: ClockPort, runningApps: RunningAppsPort? = nil) {
 		self.fs = fs
 		self.clock = clock
+		self.runningApps = runningApps
 	}
 
 	public func execute(_ rules: [CleanupRule], onProgress: ScanProgress? = nil) -> ScanReport {
@@ -17,7 +19,16 @@ public struct ScanUseCase {
 			scan(rule, into: &report)
 			onProgress?(index + 1, rules.count, rule)
 		}
+		markInUse(&report)
 		return report
+	}
+
+	/// 스캔이 끝난 시점의 실행 중인 앱으로 표시한다. 스캔 도중 앱을 켜고 끄는 경우까지 맞출 필요는 없다.
+	private func markInUse(_ report: inout ScanReport) {
+		guard let running = runningApps?.runningBundleIdentifiers(), !running.isEmpty else {
+			return
+		}
+		report.items = report.items.map { $0.marked(inUseBy: AppMatching.owner(of: $0.path, running: running)) }
 	}
 
 	private func scan(_ rule: CleanupRule, into report: inout ScanReport) {

@@ -32,6 +32,7 @@ public struct ChildRow: Hashable, Identifiable {
 	public let path: String
 	public let label: String
 	public let sizeBytes: Int64
+	public let inUseBy: String?
 	public var id: String { path }
 	public var sizeText: String { formatSize(sizeBytes) }
 }
@@ -74,8 +75,8 @@ public struct Presenter {
 	public mutating func load(_ report: ScanReport) {
 		items = report.items
 		byPath = Dictionary(uniqueKeysWithValues: items.map { ($0.path, $0) })
-		// 되돌릴 수 있는 LOW/MEDIUM은 기본 선택, HIGH는 사용자가 직접 켠다
-		selected = Set(items.filter { $0.risk != .high }.map { $0.path })
+		// 되돌릴 수 있는 LOW/MEDIUM은 기본 선택. HIGH와 실행 중인 앱의 항목은 사용자가 직접 켠다
+		selected = Set(items.filter { $0.risk != .high && $0.inUseBy == nil }.map { $0.path })
 	}
 
 	public mutating func setDisk(_ usage: DiskUsage?) {
@@ -106,7 +107,14 @@ public struct Presenter {
 				sizeBytes: g.items.reduce(0) { $0 + $1.sizeBytes },
 				color: ChartColors.palette[index % ChartColors.palette.count],
 				description: g.rule.description,
-				children: g.items.map { ChildRow(path: $0.path, label: PathUtil.basename($0.path), sizeBytes: $0.sizeBytes) }
+				children: g.items.map {
+					ChildRow(
+						path: $0.path,
+						label: PathUtil.basename($0.path),
+						sizeBytes: $0.sizeBytes,
+						inUseBy: $0.inUseBy
+					)
+				}
 			)
 		}
 	}

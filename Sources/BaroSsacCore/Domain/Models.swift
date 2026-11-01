@@ -53,12 +53,19 @@ public struct ScanItem: Hashable, Sendable {
 	public let path: String
 	public let sizeBytes: Int64
 	public let risk: RiskLevel
+	/// 스캔 시점에 이 항목을 쓰고 있던 실행 중인 앱의 번들 ID. 표시용이며, 정리 여부는 정리 시점에 다시 판단한다.
+	public let inUseBy: String?
 
-	public init(ruleName: String, path: String, sizeBytes: Int64, risk: RiskLevel) {
+	public init(ruleName: String, path: String, sizeBytes: Int64, risk: RiskLevel, inUseBy: String? = nil) {
 		self.ruleName = ruleName
 		self.path = path
 		self.sizeBytes = sizeBytes
 		self.risk = risk
+		self.inUseBy = inUseBy
+	}
+
+	public func marked(inUseBy owner: String?) -> ScanItem {
+		ScanItem(ruleName: ruleName, path: path, sizeBytes: sizeBytes, risk: risk, inUseBy: owner)
 	}
 }
 
@@ -98,6 +105,8 @@ public enum CleanOutcome: String, Hashable, Sendable {
 	case rejectedOutsideRules
 	case needsConfirmation
 	case stale       // 스캔 이후 사라졌거나 심볼릭 링크로 바뀜
+	case inUse       // 정리 시점에 이 항목의 앱이 실행 중
+	case protected   // 앱이 관리하는 라이브러리이거나 macOS 기본 앱
 	case failed
 }
 

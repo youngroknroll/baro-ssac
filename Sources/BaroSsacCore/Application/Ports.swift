@@ -33,6 +33,11 @@ public protocol TrashPort {
 	func moveToTrash(_ path: String) throws
 }
 
+public protocol RunningAppsPort {
+	/// 지금 실행 중인 앱들의 번들 ID. 호출할 때마다 새로 조회한다.
+	func runningBundleIdentifiers() -> Set<String>
+}
+
 public protocol ClockPort {
 	func now() -> Date
 }

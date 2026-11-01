@@ -100,4 +100,56 @@ internal struct FakeDisk: DiskPort {
 	func usage() -> DiskUsage? { DiskUsage(totalBytes: total, freeBytes: free) }
 }
 
+internal struct FakeRunningApps: RunningAppsPort {
+	let ids: Set<String>
+	func runningBundleIdentifiers() -> Set<String> { ids }
+}
+
+/// root → 그 아래 파일 목록. 없는 root 를 물으면 permissionDenied (exists 확인은 FileSystemPort 몫).
+internal struct FakeWalker: FileWalkerPort {
+	let listings: [String: FileListing]
+
+	func listFiles(under root: String, minSize: Int64) throws -> FileListing {
+		guard let listing = listings[root] else { throw FileSystemError.permissionDenied(root) }
+		return FileListing(
+			records: listing.records.filter { $0.sizeBytes >= minSize },
+			totalBytes: listing.totalBytes
+		)
+	}
+}
+
+/// 경로 → 내용. 표본 해시는 내용의 앞 3글자만 본다 (앞부분만 같은 파일을 2단계에서 걸러내는지 확인용).
+internal final class FakeHasher: ContentHashPort {
+	let contents: [String: String]
+	private(set) var fullHashCount = 0
+
+	init(_ contents: [String: String]) {
+		self.contents = contents
+	}
+
+	func hash(of path: String, sampleOnly: Bool) throws -> String {
+		guard let content = contents[path] else { throw FileSystemError.permissionDenied(path) }
+		if sampleOnly { return String(content.prefix(3)) }
+		fullHashCount += 1
+		return content
+	}
+}
+
+internal struct FakeCatalog: AppCatalogPort {
+	let apps: [InstalledApp]
+	func installedApps() -> [InstalledApp] { apps }
+}
+
+internal func fileRecord(
+	_ path: String,
+	_ size: Int64,
+	modified: Date = epoch,
+	lastUsed: Date? = nil,
+	isPackage: Bool = false
+) -> FileRecord {
+	FileRecord(path: path, sizeBytes: size, modifiedAt: modified, lastUsedAt: lastUsed, isPackage: isPackage)
+}
+
+internal let megabyte: Int64 = 1024 * 1024
+
 internal func days(_ n: Double) -> TimeInterval { n * 86_400 }

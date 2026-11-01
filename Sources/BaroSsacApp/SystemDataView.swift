@@ -2,7 +2,8 @@
 import SwiftUI
 import BaroSsacCore
 
-internal struct ContentView: View {
+/// 시스템 데이터(캐시·로그·개발 도구 찌꺼기) 화면.
+internal struct SystemDataView: View {
 	@ObservedObject var model: ScanViewModel
 
 	var body: some View {
@@ -12,8 +13,7 @@ internal struct ContentView: View {
 			footer
 		}
 		.padding(24)
-		.frame(minWidth: 640, minHeight: 560)
-		.onAppear { NSApp.activate(ignoringOtherApps: true) }
+		.frame(minWidth: 600, minHeight: 560)
 		.alert("주의가 필요한 항목", isPresented: confirmationShown) {
 			Button("휴지통으로 보내기", role: .destructive) {
 				model.performClean(confirmed: model.pendingConfirmation ?? [])
@@ -92,6 +92,15 @@ internal struct ContentView: View {
 				.toggleStyle(.checkbox)
 				.labelsHidden()
 			Text(c.label).help(c.path)
+			if let owner = c.inUseBy {
+				Text("실행 중")
+					.font(.caption)
+					.padding(.horizontal, 6)
+					.padding(.vertical, 1)
+					.background(Capsule().fill(Color.secondary.opacity(0.15)))
+					.foregroundStyle(.secondary)
+					.help("\(owner) 이(가) 실행 중입니다. 앱을 종료한 뒤 정리하세요.")
+			}
 			Spacer()
 			Text(c.sizeText)
 				.monospacedDigit()
