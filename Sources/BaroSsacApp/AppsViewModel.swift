@@ -7,9 +7,10 @@ import Foundation
 internal final class AppsViewModel: ObservableObject {
 	@Published private(set) var presenter: AppsPresenter
 	@Published var mode: FileListMode = .all
-	@Published var status = "스캔을 누르면 설치된 앱과 앱이 남긴 파일을 찾습니다"
+	/// 진행 상황 · 직전 결과 알림 (창 부제) | 빈 값이면 요약 표시
+	@Published var status = ""
 	@Published var isBusy = false
-	/// 삭제 확인 창에 띄운 앱의 경로.
+	/// 삭제 확인 시트 대상 앱 경로
 	@Published var uninstalling: String?
 	@Published var failures: [TrashEntry] = []
 
@@ -23,11 +24,27 @@ internal final class AppsViewModel: ObservableObject {
 
 	var rows: [AppRow] { presenter.rows(mode: mode, now: Date()) }
 
-	var summaryText: String {
-		guard presenter.isLoaded else { return "" }
-		let suggested = presenter.rows(mode: .suggested, now: Date()).count
-		let total = formatSize(presenter.totalBytes)
-		return "앱 \(presenter.items.count)개 · 관련 파일 포함 \(total) · 1년 넘게 안 쓴 앱 \(suggested)개"
+	var subtitle: String {
+		if !status.isEmpty { return status }
+		guard presenter.isLoaded else { return "/Applications, ~/Applications" }
+		return "앱 \(presenter.items.count)개"
+	}
+
+	private var unusedRows: [AppRow] { presenter.rows(mode: .suggested, now: Date()) }
+
+	var heroValue: String { formatSize(unusedRows.reduce(0) { $0 + $1.totalBytes }) }
+
+	/// 요약 카드 행: 미사용 앱 수, 전체 앱 수 · 크기(관련 파일 포함)
+	var heroFacts: [HeroFact] {
+		[
+			HeroFact(label: "1년 넘게 미사용", value: "\(unusedRows.count)개"),
+			HeroFact(label: "전체 앱", value: "\(presenter.items.count)개 · \(formatSize(presenter.totalBytes))"),
+		]
+	}
+
+	var unusedFraction: Double {
+		let total = presenter.totalBytes
+		return total > 0 ? Double(unusedRows.reduce(0) { $0 + $1.totalBytes }) / Double(total) : 0
 	}
 
 	// MARK: 스캔
@@ -63,7 +80,7 @@ internal final class AppsViewModel: ObservableObject {
 		guard let appPath = uninstalling else { return }
 		uninstalling = nil
 		isBusy = true
-		status = "휴지통으로 보내는 중…"
+		status = "휴지통으로 옮기는 중…"
 		let requests = presenter.uninstallRequests(for: appPath)
 		let container = self.container
 		Task.detached(priority: .userInitiated) { [weak self] in
@@ -75,9 +92,9 @@ internal final class AppsViewModel: ObservableObject {
 	private func finishUninstall(_ result: TrashResult) {
 		failures = result.entries.filter { $0.outcome == .failed }
 		if result.count(.inUse) > 0 {
-			notice = "앱이 실행 중이라 지우지 않았습니다. 앱을 종료한 뒤 다시 시도하세요"
+			notice = "실행 중인 앱 · 삭제 안 함 · 앱 종료 후 다시 시도"
 		} else {
-			notice = "\(formatSize(result.freedBytes)) 를 휴지통으로 보냈습니다"
+			notice = "휴지통으로 이동 \(formatSize(result.freedBytes))"
 		}
 		isBusy = false
 		scan()

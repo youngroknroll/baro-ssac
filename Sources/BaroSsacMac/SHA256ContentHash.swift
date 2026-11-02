@@ -3,7 +3,7 @@ import BaroSsacCore
 import CryptoKit
 import Foundation
 
-/// 파일 내용의 SHA-256. 표본 모드는 앞 1MB + 뒤 1MB + 크기만 읽는다.
+/// 파일 내용 SHA-256 | 표본 모드: 앞 1MB + 뒤 1MB + 크기
 public struct SHA256ContentHash: ContentHashPort {
 	private static let chunkSize = 1 << 20
 

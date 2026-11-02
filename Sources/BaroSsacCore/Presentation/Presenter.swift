@@ -1,4 +1,4 @@
-// 화면 상태와 표시 규칙. UI 프레임워크에 의존하지 않아 그대로 테스트된다.
+// 화면 상태와 표시 규칙 (UI 프레임워크 비의존 · 단위 테스트 대상)
 import Foundation
 
 private let units = ["B", "KB", "MB", "GB", "TB"]
@@ -18,14 +18,16 @@ public func formatSize(_ n: Int64) -> String {
 	return "\(text) \(units[unit])"
 }
 
+/// 차트 색 이름 (Core 는 이름만 · 실제 색은 화면에서 시스템 색으로 변환)
+/// (시스템 색 → 다크 모드 자동 대응)
 public enum ChartColors {
-	/// 종류별 조각 색. 용량순으로 배정되므로 큰 조각일수록 앞쪽 색을 받는다.
+	/// 종류별 조각 색 | 배정: 용량순 (큰 조각 = 앞쪽 색)
 	public static let palette = [
-		"#4f7cff", "#ff8a3d", "#2bb673", "#b56cff", "#e5c100", "#ff5c8a",
-		"#1bb5c9", "#8a6d3b", "#6c8e2a", "#d94f2a", "#5a5fd6",
+		"blue", "purple", "pink", "orange", "teal", "indigo",
+		"mint", "cyan", "yellow", "brown", "green",
 	]
-	public static let other = "#b8b8b8"
-	public static let free = "#e9e9e9"
+	public static let other = "other"
+	public static let free = "free"
 }
 
 public struct ChildRow: Hashable, Identifiable {
@@ -73,9 +75,10 @@ public struct Presenter {
 	// MARK: 로드
 
 	public mutating func load(_ report: ScanReport) {
-		items = report.items
+		// 0바이트 항목 제외 (삭제해도 확보 공간 없음)
+		items = report.items.filter { $0.sizeBytes > 0 }
 		byPath = Dictionary(uniqueKeysWithValues: items.map { ($0.path, $0) })
-		// 되돌릴 수 있는 LOW/MEDIUM은 기본 선택. HIGH와 실행 중인 앱의 항목은 사용자가 직접 켠다
+		// 기본 선택: LOW · MEDIUM | 제외: HIGH · 실행 중 앱 항목 (사용자 직접 선택)
 		selected = Set(items.filter { $0.risk != .high && $0.inUseBy == nil }.map { $0.path })
 	}
 
@@ -119,7 +122,7 @@ public struct Presenter {
 		}
 	}
 
-	/// 원 전체 = 디스크 총 용량. 종류별 조각 → 그 외 사용 중 → 여유 공간.
+	/// 원 전체 = 디스크 총 용량 | 조각 순서: 종류별 → 그 외 사용 중 → 여유 공간
 	public func chartSegments() -> [ChartSegment] {
 		var segs = groups().map { ChartSegment(key: $0.name, label: $0.title, bytes: $0.sizeBytes, color: $0.color) }
 		guard let disk else { return segs }

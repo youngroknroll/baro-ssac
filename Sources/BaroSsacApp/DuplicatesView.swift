@@ -2,22 +2,32 @@
 import BaroSsacCore
 import SwiftUI
 
-/// 중복 파일 탭. 같은 내용의 파일을 묶음 단위로 보여 주고, 묶음마다 남길 원본을 표시한다.
+/// 중복 파일 탭: 내용 동일 파일 묶음 단위 표시 · 묶음별 원본 표시
 internal struct DuplicatesView: View {
 	@ObservedObject var model: FilesViewModel
 
 	var body: some View {
-		VStack(alignment: .leading, spacing: 12) {
-			header
-			if model.presenter.hasReport {
-				list
+		VStack(spacing: 0) {
+			if model.hasScanned {
+				content
+				ActionBar {
+					SelectionSummary(count: model.selectedDuplicateCount, bytes: model.selectedDuplicateBytes)
+				} trailing: {
+					Button("사본 모두 선택") { model.selectAllDuplicateCopies() }
+						.disabled(model.isBusy || model.duplicateGroups().isEmpty)
+						.help("묶음마다 원본 유지 · 사본만 선택")
+					Button("선택 해제") { model.clearDuplicateSelection() }
+						.disabled(model.isBusy || model.selectedDuplicateCount == 0)
+					TrashButton(enabled: model.canTrashDuplicates) { model.requestTrash(.duplicates) }
+				}
 			} else {
-				placeholder
+				emptyState
 			}
-			footer
 		}
-		.padding(20)
-		.alert("휴지통으로 보낼까요?", isPresented: trashShown) {
+		.navigationTitle("중복 파일")
+		.navigationSubtitle(model.duplicateSubtitle)
+		.scanToolbar(isBusy: model.isBusy) { model.scan() }
+		.alert(model.confirmationTitle(.duplicates), isPresented: trashShown) {
 			Button("휴지통으로 보내기", role: .destructive) { model.performTrash() }
 			Button("취소", role: .cancel) { model.pendingTrash = nil }
 		} message: {
@@ -25,45 +35,47 @@ internal struct DuplicatesView: View {
 		}
 	}
 
-	// MARK: - 상단
+	// MARK: - 빈 화면
 
-	private var header: some View {
-		HStack(alignment: .top) {
-			VStack(alignment: .leading, spacing: 4) {
-				Text("중복 파일").font(.title2.weight(.semibold))
-				Text(model.duplicateSummaryText).foregroundStyle(.secondary)
-				if !model.status.isEmpty {
-					Text(model.status).font(.callout).foregroundStyle(.secondary)
-				}
-			}
-			Spacer()
-			Button("스캔") { model.scan() }
+	private var emptyState: some View {
+		ContentUnavailableView {
+			Label("중복 파일", systemImage: "doc.on.doc")
+		} description: {
+			Text("대상: 문서 · 사진 · 음악 · 동영상 · 다운로드\n기준: 내용 동일 · 묶음마다 원본 1개 유지")
+		} actions: {
+			Button("스캔하기") { model.scan() }
+				.buttonStyle(.borderedProminent)
+				.controlSize(.large)
 				.disabled(model.isBusy)
 		}
 	}
 
-	private var placeholder: some View {
-		VStack(spacing: 8) {
-			Spacer()
-			Text("스캔을 누르면 문서·사진·음악·동영상·다운로드에서 내용이 같은 파일을 찾습니다.")
-			Text("묶음마다 하나는 원본으로 남기고, 나머지 사본만 정리할 수 있습니다.").foregroundStyle(.secondary)
-			Spacer()
-		}
-		.frame(maxWidth: .infinity)
-	}
+	// MARK: - 내용
 
-	// MARK: - 목록
+	private var content: some View {
+		VStack(spacing: 16) {
+			HeroCard(
+				title: "사본 제거 시 확보 용량",
+				value: formatSize(model.presenter.duplicateReclaimableBytes),
+				facts: model.duplicateHeroFacts,
+				notice: model.duplicateHeroNotice
+			)
+			.padding(.horizontal, Design.pagePadding)
+			.padding(.top, Design.pagePadding)
+
+			list
+		}
+	}
 
 	@ViewBuilder
 	private var list: some View {
 		let groups = model.duplicateGroups()
 		if groups.isEmpty {
-			VStack {
-				Spacer()
-				Text("1MB 넘는 파일 가운데 내용이 같은 파일이 없습니다").foregroundStyle(.secondary)
-				Spacer()
-			}
-			.frame(maxWidth: .infinity)
+			ContentUnavailableView(
+				"중복 파일 없음",
+				systemImage: "checkmark.circle",
+				description: Text("검사 대상: 1MB 초과 파일")
+			)
 		} else {
 			List {
 				ForEach(groups) { group in
@@ -73,19 +85,31 @@ internal struct DuplicatesView: View {
 							fileRow(copy, isKeeper: false)
 						}
 					} header: {
-						HStack {
-							Text(group.keeper.name).lineLimit(1).truncationMode(.middle)
-							Text("· 사본 \(group.copies.count)개 · 각 \(group.sizeText)")
-								.foregroundStyle(.secondary)
-							Spacer()
-							Text("\(group.reclaimableText) 확보 가능").foregroundStyle(.secondary)
-						}
+						groupHeader(group)
 					}
 				}
 			}
-			.listStyle(.inset(alternatesRowBackgrounds: true))
+			.listStyle(.inset)
 			.disabled(model.isBusy)
 		}
+	}
+
+	private func groupHeader(_ group: DuplicateGroup) -> some View {
+		HStack(spacing: 8) {
+			Text(group.keeper.name)
+				.fontWeight(.semibold)
+				.foregroundStyle(.primary)
+				.lineLimit(1)
+				.truncationMode(.middle)
+			Text("사본 \(group.copies.count)개 · 각 \(group.sizeText)")
+				.foregroundStyle(.secondary)
+			Spacer()
+			Text("\(group.reclaimableText) 확보")
+				.monospacedDigit()
+				.foregroundStyle(.secondary)
+		}
+		.font(.subheadline)
+		.padding(.top, 6)
 	}
 
 	private func fileRow(_ row: FileRow, isKeeper: Bool) -> some View {
@@ -93,41 +117,19 @@ internal struct DuplicatesView: View {
 			Toggle("", isOn: selection(row.path))
 				.toggleStyle(.checkbox)
 				.labelsHidden()
-			// 이름이 같은 경우가 많아 폴더를 먼저 보여 준다.
-			VStack(alignment: .leading, spacing: 2) {
-				Text(row.folder).lineLimit(1).truncationMode(.head)
-				Text(row.name).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-			}
-			.help(row.path)
-			Spacer()
+			FileIcon(path: row.path, size: 24)
+			// 위치 우선 표시 (이름 동일 사례 많음)
+			TitleAndCaption(title: row.folder, caption: row.name, help: row.path)
+			Spacer(minLength: 12)
 			if isKeeper {
-				Chip(text: "원본 · 남김", tint: .green)
+				Tag(text: "원본 유지", tint: .green)
 			} else {
-				Chip(text: "사본", tint: .orange)
+				Tag(text: "사본", tint: .orange)
 			}
-			Text(row.sizeText)
-				.monospacedDigit()
-				.frame(width: 90, alignment: .trailing)
+			SizeLabel(text: row.sizeText)
 		}
+		.padding(.vertical, 3)
 		.contextMenu { RevealMenu(path: row.path) }
-	}
-
-	// MARK: - 하단
-
-	private var footer: some View {
-		HStack {
-			if model.presenter.hasReport {
-				Text(model.duplicateSelectionText)
-			}
-			Spacer()
-			Button("사본 모두 선택") { model.selectAllDuplicateCopies() }
-				.disabled(model.isBusy || model.duplicateGroups().isEmpty)
-			Button("선택 해제") { model.clearDuplicateSelection() }
-				.disabled(model.isBusy)
-			Button("휴지통으로 보내기") { model.requestTrash(.duplicates) }
-				.disabled(!model.canTrashDuplicates)
-				.keyboardShortcut(.defaultAction)
-		}
 	}
 
 	// MARK: - 바인딩

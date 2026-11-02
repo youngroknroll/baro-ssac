@@ -33,7 +33,7 @@ public struct AppsPresenter {
 	private let home: String
 	public private(set) var items: [AppItem] = []
 	public private(set) var isLoaded = false
-	/// 앱 경로 → 함께 지울 관련 파일 경로.
+	/// 앱 경로 → 함께 삭제할 관련 파일 경로
 	private var leftoverSelection: [String: Set<String>] = [:]
 
 	public init(home: String) {
@@ -43,7 +43,7 @@ public struct AppsPresenter {
 	public mutating func load(_ items: [AppItem]) {
 		self.items = items
 		isLoaded = true
-		// 번들 ID 로 찾은 파일은 그 앱의 것이 확실하므로 기본 선택. 이름으로 찾은 파일은 사용자가 확인한다.
+		// 기본 선택: 번들 ID 일치 파일만 (이름 일치는 사용자 확인)
 		leftoverSelection = Dictionary(uniqueKeysWithValues: items.map { item in
 			(item.app.path, Set(item.leftovers.filter { $0.match == .bundleID }.map(\.path)))
 		})
@@ -94,7 +94,7 @@ public struct AppsPresenter {
 		}
 	}
 
-	/// 앱 번들 + 고른 관련 파일. 보호된 앱이면 빈 목록.
+	/// 반환: 앱 번들 + 선택 관련 파일 | 보호 앱: 빈 목록
 	public func uninstallRequests(for appPath: String) -> [TrashRequest] {
 		guard let item = item(appPath), !item.isProtected else { return [] }
 		let chosen = leftoverSelection[appPath] ?? []

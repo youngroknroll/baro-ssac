@@ -53,7 +53,7 @@ internal final class AppsPresenterTests: XCTestCase {
 		XCTAssertTrue(p.isLoaded)
 	}
 
-	/// 번들 ID 로 찾은 파일은 그 앱의 것이 확실해 기본으로 고르고, 이름으로 찾은 파일은 사용자가 확인하게 둔다.
+	/// 기본 선택: 번들 ID 일치만 · 이름 일치는 사용자 확인
 	func testLeftoversFoundByBundleIDArePreselectedButNameMatchesAreNot() {
 		let p = loaded([slack])
 

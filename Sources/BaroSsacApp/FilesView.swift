@@ -2,89 +2,104 @@
 import BaroSsacCore
 import SwiftUI
 
-/// 문서·사진·음악·동영상·다운로드 중 한 카테고리.
+/// 파일 카테고리 화면 (문서 · 사진 · 음악 · 동영상 · 다운로드)
 internal struct FilesView: View {
 	let category: FileCategory
 	@ObservedObject var model: FilesViewModel
 
 	var body: some View {
-		VStack(alignment: .leading, spacing: 12) {
-			header
-			if model.presenter.hasReport {
-				list
+		VStack(spacing: 0) {
+			if model.hasScanned {
+				content
+				ActionBar {
+					SelectionSummary(
+						count: model.selectedCount(category),
+						bytes: model.presenter.selectedBytes(in: category)
+					)
+				} trailing: {
+					Button("추천 모두 선택") { model.selectAllSuggested(category) }
+						.disabled(model.isBusy || model.presenter.suggestedCount(category) == 0)
+					Button("선택 해제") { model.clearSelection(category) }
+						.disabled(model.isBusy || model.selectedCount(category) == 0)
+					TrashButton(enabled: model.canTrash(category)) { model.requestTrash(.category(category)) }
+				}
 			} else {
-				placeholder
+				emptyState
 			}
-			footer
 		}
-		.padding(20)
-		.alert("휴지통으로 보낼까요?", isPresented: trashShown) {
+		.navigationTitle(category.title)
+		.navigationSubtitle(model.subtitle(category))
+		.modeToolbar($model.mode)
+		.scanToolbar(isBusy: model.isBusy) { model.scan() }
+		.alert(model.confirmationTitle(.category(category)), isPresented: trashShown) {
 			Button("휴지통으로 보내기", role: .destructive) { model.performTrash() }
 			Button("취소", role: .cancel) { model.pendingTrash = nil }
 		} message: {
 			Text(model.confirmationText(.category(category)))
 		}
-		.alert("일부 항목을 보내지 못했습니다", isPresented: failuresShown) {
+		.alert("휴지통 이동 실패 항목", isPresented: failuresShown) {
 			Button("확인", role: .cancel) { model.failures = [] }
 		} message: {
-			Text(model.failures.prefix(10).map { "\($0.request.path)\n  \($0.error)" }.joined(separator: "\n"))
+			Text(model.failures.prefix(10).map { "\($0.request.path)\n\($0.error)" }.joined(separator: "\n\n"))
 		}
 	}
 
-	// MARK: - 상단
+	// MARK: - 빈 화면
 
-	private var header: some View {
-		HStack(alignment: .top) {
-			VStack(alignment: .leading, spacing: 4) {
-				Text(category.title).font(.title2.weight(.semibold))
-				Text(model.summaryText(category)).foregroundStyle(.secondary)
-				if !model.status.isEmpty {
-					Text(model.status).font(.callout).foregroundStyle(.secondary)
-				}
-			}
-			Spacer()
-			Picker("", selection: $model.mode) {
-				ForEach(FileListMode.allCases, id: \.self) { mode in
-					Text(mode.title).tag(mode)
-				}
-			}
-			.pickerStyle(.segmented)
-			.labelsHidden()
-			.frame(width: 220)
-			Button("스캔") { model.scan() }
+	private var emptyState: some View {
+		ContentUnavailableView {
+			Label(category.title, systemImage: Self.icon(category))
+		} description: {
+			Text("추천 기준: 중복 파일 · 설치 파일 · 1년 넘게 안 연 100MB 이상 파일\n처리: 직접 선택한 파일만 휴지통으로 이동")
+		} actions: {
+			Button("스캔하기") { model.scan() }
+				.buttonStyle(.borderedProminent)
+				.controlSize(.large)
 				.disabled(model.isBusy)
 		}
 	}
 
-	private var placeholder: some View {
-		VStack(spacing: 8) {
-			Spacer()
-			Text("스캔을 누르면 폴더를 살펴보고, 정리해도 될 만한 파일을 이유와 함께 보여 줍니다.")
-			Text("파일은 직접 고른 것만 휴지통으로 보냅니다.").foregroundStyle(.secondary)
-			Spacer()
-		}
-		.frame(maxWidth: .infinity)
-	}
+	// MARK: - 내용
 
-	// MARK: - 목록
+	private var content: some View {
+		VStack(spacing: 16) {
+			HeroCard(
+				title: "정리 추천",
+				value: formatSize(model.presenter.suggestedBytes(category)),
+				facts: model.heroFacts(category),
+				notice: model.heroNotice(category),
+				fraction: model.suggestedFraction(category)
+			)
+			.padding(.horizontal, Design.pagePadding)
+			.padding(.top, Design.pagePadding)
+
+			list
+		}
+	}
 
 	@ViewBuilder
 	private var list: some View {
 		let rows = model.rows(category)
 		if rows.isEmpty {
-			VStack {
-				Spacer()
-				Text(model.mode == .suggested ? "정리 추천이 없습니다" : "1MB 넘는 파일이 없습니다")
-					.foregroundStyle(.secondary)
-				Spacer()
+			if model.mode == .suggested {
+				ContentUnavailableView(
+					"정리 추천 없음",
+					systemImage: "checkmark.circle",
+					description: Text("전체 목록: 툴바의 '전체 (크기순)'")
+				)
+			} else {
+				ContentUnavailableView(
+					"1MB 초과 파일 없음",
+					systemImage: "tray",
+					description: Text("1MB 미만 파일: 목록 제외 · 전체 크기에만 합산")
+				)
 			}
-			.frame(maxWidth: .infinity)
 		} else {
 			List(rows) { row in
 				fileRow(row)
 					.contextMenu { RevealMenu(path: row.path) }
 			}
-			.listStyle(.inset(alternatesRowBackgrounds: true))
+			.listStyle(.inset)
 			.disabled(model.isBusy)
 		}
 	}
@@ -95,40 +110,19 @@ internal struct FilesView: View {
 				.toggleStyle(.checkbox)
 				.labelsHidden()
 				.disabled(row.protectedReason != nil)
-			VStack(alignment: .leading, spacing: 2) {
-				Text(row.name).lineLimit(1).truncationMode(.middle)
-				Text(row.folder).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
-			}
-			.help(row.path)
-			Spacer()
+			FileIcon(path: row.path, size: 24)
+			TitleAndCaption(title: row.name, caption: row.folder, help: row.path)
+			Spacer(minLength: 12)
 			ForEach(row.reasons, id: \.self) { reason in
-				Chip(text: reason, tint: .orange)
+				Tag(text: reason, tint: .orange)
 			}
 			if let reason = row.protectedReason {
-				Chip(text: reason)
+				Tag(text: reason)
 			}
-			Text(row.sizeText)
-				.monospacedDigit()
-				.frame(width: 90, alignment: .trailing)
+			SizeLabel(text: row.sizeText, emphasized: true)
 		}
-	}
-
-	// MARK: - 하단
-
-	private var footer: some View {
-		HStack {
-			if model.presenter.hasReport {
-				Text(model.selectionText(category))
-			}
-			Spacer()
-			Button("추천 모두 선택") { model.selectAllSuggested(category) }
-				.disabled(model.isBusy || model.presenter.suggestedCount(category) == 0)
-			Button("선택 해제") { model.clearSelection(category) }
-				.disabled(model.isBusy)
-			Button("휴지통으로 보내기") { model.requestTrash(.category(category)) }
-				.disabled(!model.canTrash(category))
-				.keyboardShortcut(.defaultAction)
-		}
+		.padding(.vertical, 3)
+		.opacity(row.protectedReason == nil ? 1 : 0.6)
 	}
 
 	// MARK: - 바인딩
@@ -152,6 +146,16 @@ internal struct FilesView: View {
 			get: { !model.failures.isEmpty },
 			set: { if !$0 { model.failures = [] } }
 		)
+	}
+
+	static func icon(_ category: FileCategory) -> String {
+		switch category {
+		case .documents: "doc"
+		case .pictures: "photo"
+		case .music: "music.note"
+		case .movies: "film"
+		case .downloads: "arrow.down.circle"
+		}
 	}
 }
 #endif

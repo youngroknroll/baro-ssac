@@ -23,7 +23,7 @@ public struct ScanUseCase {
 		return report
 	}
 
-	/// 스캔이 끝난 시점의 실행 중인 앱으로 표시한다. 스캔 도중 앱을 켜고 끄는 경우까지 맞출 필요는 없다.
+	/// 실행 중 표시 기준: 스캔 종료 시점 (스캔 도중 변경은 미반영)
 	private func markInUse(_ report: inout ScanReport) {
 		guard let running = runningApps?.runningBundleIdentifiers(), !running.isEmpty else {
 			return

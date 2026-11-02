@@ -21,7 +21,7 @@ public struct AppScanUseCase {
 		self.policy = policy
 	}
 
-	/// 설치된 앱과 그 앱이 남긴 파일. 관련 파일까지 합친 크기 내림차순.
+	/// 설치된 앱 + 관련 파일 | 정렬: 합산 크기 내림차순
 	public func execute() -> [AppItem] {
 		let staleCutoff = clock.now().addingTimeInterval(-Double(policy.staleAfterDays) * 86_400)
 		return catalog.installedApps()
@@ -42,7 +42,7 @@ public struct AppScanUseCase {
 				else { return nil }
 				return Leftover(path: candidate.path, sizeBytes: st.sizeBytes, match: candidate.match)
 			}
-		// 앱은 크기와 상관없이, 마지막 사용일을 알 때만 판단한다 (수정일은 업데이트 날짜라 의미가 없다).
+		// 앱 미사용 판단: 마지막 사용일 있을 때만 · 크기 무관 (수정일 = 업데이트 날짜라 제외)
 		var suggestions: [Suggestion] = []
 		if let lastUsed = app.lastUsedAt, lastUsed <= staleCutoff {
 			suggestions.append(.stale(since: lastUsed))

@@ -1,12 +1,15 @@
 #if os(macOS)
-import SwiftUI
 import BaroSsacCore
+import SwiftUI
 
-/// 디스크 전체를 원으로, 정리 가능한 종류를 조각으로 그리는 도넛.
+/// 도넛: 원 = 디스크 전체 · 조각 = 정리 가능 종류 | 가운데: 디스크 사용률
 internal struct DonutChart: View {
 	let segments: [ChartSegment]
 	let centerText: String
 	let caption: String
+
+	/// 조각 사이 틈 (둘레 대비 비율) | 작은 조각은 틈 없음
+	private static let gap = 0.006
 
 	private struct Arc: Identifiable {
 		let id: String
@@ -23,51 +26,46 @@ internal struct DonutChart: View {
 			let fraction = Double(seg.bytes) / total
 			guard fraction > 0 else { return nil }
 			defer { cursor += fraction }
-			return Arc(id: seg.key, color: Color(hex: seg.color), from: cursor, to: cursor + fraction)
+			let inset = fraction > Self.gap * 3 ? Self.gap / 2 : 0
+			return Arc(
+				id: seg.key,
+				color: Palette.color(seg.color),
+				from: cursor + inset,
+				to: cursor + fraction - inset
+			)
 		}
 	}
 
 	var body: some View {
 		GeometryReader { geo in
 			let side = min(geo.size.width, geo.size.height)
-			let thickness = side * 0.17
+			let thickness = side * 0.12
 			ZStack {
-				if arcs.isEmpty {
-					Circle().stroke(Color(hex: ChartColors.free), lineWidth: thickness)
-				} else {
-					ForEach(arcs) { arc in
-						Circle()
-							.trim(from: arc.from, to: arc.to)
-							.stroke(arc.color, style: StrokeStyle(lineWidth: thickness, lineCap: .butt))
-							.rotationEffect(.degrees(-90))  // 12시 방향에서 시계 방향으로
-					}
+				Circle().stroke(Design.trackFill, lineWidth: thickness)
+				ForEach(arcs) { arc in
+					Circle()
+						.trim(from: arc.from, to: arc.to)
+						.stroke(arc.color, style: StrokeStyle(lineWidth: thickness, lineCap: .butt))
+						.rotationEffect(.degrees(-90))  // 시작: 12시 방향 · 시계 방향
 				}
-				VStack(spacing: 2) {
+				VStack(spacing: 0) {
 					Text(centerText)
-						.font(.system(size: side * 0.085, weight: .semibold))
+						.font(.system(size: side * 0.12, weight: .bold, design: .rounded))
+						.monospacedDigit()
+						.minimumScaleFactor(0.6)
+						.lineLimit(1)
 					if !caption.isEmpty {
 						Text(caption)
-							.font(.system(size: side * 0.06))
+							.font(.system(size: side * 0.075))
 							.foregroundStyle(.secondary)
 					}
 				}
+				.padding(thickness * 1.4)
 			}
 			.padding(thickness / 2)
 			.frame(width: side, height: side)
+			.animation(.snappy, value: centerText)
 		}
-	}
-}
-
-internal extension Color {
-	/// "#rrggbb"
-	init(hex: String) {
-		var value: UInt64 = 0
-		Scanner(string: String(hex.dropFirst())).scanHexInt64(&value)
-		self.init(
-			red: Double((value >> 16) & 0xff) / 255,
-			green: Double((value >> 8) & 0xff) / 255,
-			blue: Double(value & 0xff) / 255
-		)
 	}
 }
 #endif

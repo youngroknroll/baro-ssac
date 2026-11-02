@@ -1,10 +1,10 @@
-// 사용자가 고른 파일·앱을 휴지통으로 보낸다. 캐시 정리(CleanUseCase)와 같은 원칙을 '경로 목록'에 적용한다.
+// 사용자 선택 파일 · 앱 → 휴지통 | CleanUseCase 원칙을 경로 목록에 적용
 import Foundation
 
 public struct TrashRequest: Hashable, Sendable {
 	public let path: String
 	public let sizeBytes: Int64
-	/// 앱 번들이면 그 번들 ID. 실행 중인지, macOS 기본 앱인지 확인하는 데 쓴다.
+	/// 앱 번들의 번들 ID | 용도: 실행 중 · macOS 기본 앱 판별
 	public let bundleID: String?
 
 	public init(path: String, sizeBytes: Int64, bundleID: String? = nil) {
@@ -78,7 +78,7 @@ public struct TrashFilesUseCase {
 		if dryRun {
 			return TrashEntry(request: request, outcome: .wouldTrash)
 		}
-		// 고른 뒤에 상태가 바뀌었을 수 있으므로 보내기 직전에 다시 확인한다
+		// 이동 직전 재확인: 선택 이후 상태 변경 대비
 		if !fs.exists(path) || fs.isSymlink(path) {
 			return TrashEntry(request: request, outcome: .stale)
 		}

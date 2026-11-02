@@ -19,13 +19,13 @@ public struct CleanUseCase {
 		confirmedPaths: Set<String> = []
 	) -> CleanResult {
 		let confirmed = Set(confirmedPaths.map(PathUtil.normalize))
-		// 스캔 결과의 inUseBy 는 믿지 않는다. 정리하는 '지금' 실행 중인지가 기준이다.
+		// 실행 중 판단 기준: 정리 시점 조회 (스캔 결과 inUseBy 미사용)
 		let running = runningApps?.runningBundleIdentifiers() ?? []
 		let entries = items.map { cleanOne($0, dryRun: dryRun, confirmed: confirmed, running: running) }
 		return CleanResult(dryRun: dryRun, entries: entries)
 	}
 
-	/// 정규화한 경로가 규칙이 허용하는 위치인지. ROOT 세분성은 루트 자체만, 그 외는 루트의 '하위'만.
+	/// 허용 위치 검사 (정규화 경로) | ROOT 세분성: 루트 자체만 · 그 외: 루트 하위만
 	private static func isAllowedTarget(_ path: String, rule: CleanupRule) -> Bool {
 		if rule.granularity == .root {
 			return PathUtil.normalize(path) == PathUtil.normalize(rule.root)
@@ -43,7 +43,7 @@ public struct CleanUseCase {
 			return CleanEntry(item: item, outcome: .rejectedOutsideRules)
 		}
 		let path = PathUtil.normalize(item.path)
-		// 위험도는 아이템이 아니라 규칙에서 가져온다 (위조 방지)
+		// 위험도 출처: 규칙 (아이템 값 미사용 · 위조 방지)
 		if rule.risk == .high && !confirmed.contains(path) {
 			return CleanEntry(item: item, outcome: .needsConfirmation)
 		}
@@ -53,7 +53,7 @@ public struct CleanUseCase {
 		if dryRun {
 			return CleanEntry(item: item, outcome: .wouldTrash)
 		}
-		// 스캔 이후 상태가 바뀌었을 수 있으므로 정리 직전에 다시 확인한다
+		// 정리 직전 재확인: 스캔 이후 상태 변경 대비
 		if !fs.exists(path) || fs.isSymlink(path) {
 			return CleanEntry(item: item, outcome: .stale)
 		}

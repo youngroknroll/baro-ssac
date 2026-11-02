@@ -2,10 +2,10 @@
 import BaroSsacCore
 import Foundation
 
-/// FileWalkerPort 의 실제 구현.
+/// FileWalkerPort 실제 구현
 ///
-/// 크기는 실제 할당 크기다. iCloud 에만 있고 Mac 에 내려받지 않은 파일은 0 이 되어
-/// 목록과 중복 검사에서 자연스럽게 빠진다 (해시를 계산하려다 내려받는 일이 없다).
+/// 크기 기준: 실제 할당 크기
+/// iCloud 미다운로드 파일 = 0 → 목록 · 중복 검사 자동 제외 (해시 계산용 다운로드 없음)
 public struct LocalFileWalker: FileWalkerPort {
 	private let fs = LocalFileSystem()
 
@@ -26,7 +26,7 @@ public struct LocalFileWalker: FileWalkerPort {
 			at: URL(fileURLWithPath: root, isDirectory: true),
 			includingPropertiesForKeys: keys,
 			options: [.skipsHiddenFiles, .skipsPackageDescendants],
-			errorHandler: { _, _ in true }  // 읽을 수 없는 하위 폴더는 건너뛰고 계속
+			errorHandler: { _, _ in true }  // 읽기 불가 하위 폴더: 건너뛰고 계속
 		) else {
 			return FileListing()
 		}

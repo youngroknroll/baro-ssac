@@ -42,7 +42,7 @@ internal final class AppScanUseCaseTests: XCTestCase {
 		XCTAssertTrue(byName.contains("/u/Library/Application Support/Slack"))
 	}
 
-	/// 이름이 비었거나 경로를 벗어날 수 있는 이름이면 이름으로는 찾지 않는다.
+	/// 빈 이름 · 경로 이탈 가능 이름: 이름 기반 탐색 제외
 	func testNoNameCandidatesForUnsafeNames() {
 		for unsafe in ["", ".", "..", "a/b"] {
 			let candidates = AppLeftovers.candidates(bundleID: nil, appName: unsafe, home: home)
@@ -61,7 +61,7 @@ internal final class AppScanUseCaseTests: XCTestCase {
 	}
 
 	func testCandidatesAreUniqueAndBundleIDMatchWins() {
-		// 번들 ID 와 이름이 같은 앱: 같은 경로가 두 번 나오면 안 된다.
+		// 번들 ID = 이름인 앱: 중복 경로 없음
 		let candidates = AppLeftovers.candidates(bundleID: "Foo", appName: "Foo", home: home)
 		let paths = candidates.map(\.path)
 

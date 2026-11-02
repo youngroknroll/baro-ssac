@@ -1,4 +1,4 @@
-// 응용 프로그램과 그 앱이 남긴 파일.
+// 응용 프로그램 · 관련 파일 도메인
 import Foundation
 
 public struct InstalledApp: Hashable, Sendable {
@@ -6,7 +6,7 @@ public struct InstalledApp: Hashable, Sendable {
 	public let name: String
 	public let bundleID: String?
 	public let sizeBytes: Int64
-	/// Spotlight 의 '마지막으로 연 날짜'. 모르면 nil.
+	/// Spotlight 마지막 사용일 | 불명: nil
 	public let lastUsedAt: Date?
 
 	public init(path: String, name: String, bundleID: String?, sizeBytes: Int64, lastUsedAt: Date?) {
@@ -17,14 +17,14 @@ public struct InstalledApp: Hashable, Sendable {
 		self.lastUsedAt = lastUsedAt
 	}
 
-	/// macOS 기본 앱은 지우지 않는다 (대부분 SIP 로 보호되고, 지워지더라도 시스템이 다시 설치한다).
+	/// macOS 기본 앱: 삭제 제외 (대부분 SIP 보호 · 삭제돼도 시스템이 재설치)
 	public var isBuiltIn: Bool { bundleID?.hasPrefix("com.apple.") ?? false }
 }
 
 public enum LeftoverMatch: Hashable, Sendable {
-	/// 번들 ID 로 찾음. 그 앱의 것이 거의 확실하다.
+	/// 번들 ID 일치 (해당 앱 소유 확실)
 	case bundleID
-	/// 앱 이름으로 찾음. 이름이 같은 다른 앱의 것일 수도 있다.
+	/// 앱 이름 일치 (동명 다른 앱 소유 가능)
 	case appName
 }
 
@@ -72,7 +72,7 @@ public struct LeftoverCandidate: Hashable, Sendable {
 }
 
 public enum AppLeftovers {
-	/// 앱이 남긴 파일을 찾는 ~/Library 하위 폴더. 휴지통 유스케이스는 이 안만 허용한다.
+	/// 관련 파일 탐색 위치 (~/Library 하위) | 휴지통 유스케이스 허용 범위
 	public static func allowedRoots(home: String) -> [String] {
 		let lib = "\(home)/Library"
 		return [
@@ -90,8 +90,8 @@ public enum AppLeftovers {
 		]
 	}
 
-	/// 존재 여부와 상관없이 찾아볼 경로. 같은 경로가 번들 ID 와 이름 양쪽에서 나오면 번들 ID 쪽만 남긴다.
-	/// Group Containers 처럼 여러 앱이 함께 쓰는 곳은 넣지 않는다.
+	/// 후보 경로 (존재 무관) | 번들 ID · 이름 중복 경로: 번들 ID 쪽만 유지
+	/// 제외: Group Containers 등 여러 앱 공유 위치
 	public static func candidates(
 		bundleID: String?,
 		appName: String,
@@ -128,7 +128,7 @@ public enum AppLeftovers {
 		return result
 	}
 
-	/// 경로 한 칸으로만 쓰일 수 있는 이름인지. 비었거나 `.`/`..` 이거나 `/` 가 있으면 안 된다.
+	/// 경로 한 칸 이름 여부 | 불가: 빈 값 · `.` · `..` · `/` 포함
 	private static func isSafeName(_ name: String) -> Bool {
 		!name.isEmpty && name != "." && name != ".." && !name.contains("/")
 	}

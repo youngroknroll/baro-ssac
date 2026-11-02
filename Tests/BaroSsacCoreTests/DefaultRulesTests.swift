@@ -14,7 +14,7 @@ internal final class DefaultRulesTests: XCTestCase {
 		XCTAssertEqual(names.count, Set(names).count)
 	}
 
-	/// 1단계에서는 관리자 권한이 필요한 시스템 경로를 대상으로 삼지 않는다.
+	/// 관리자 권한 필요한 시스템 경로 제외
 	func testEveryRuleLivesInsideTheUserHome() {
 		for r in rules {
 			XCTAssertTrue(r.root.hasPrefix(home + "/"), r.name)
@@ -59,7 +59,7 @@ internal final class DefaultRulesTests: XCTestCase {
 		XCTAssertEqual(try rule("ios-backups").risk, .high)
 	}
 
-	/// 폴더 단위로 나이를 재면 활성 앱의 로그 폴더는 전부 '최근'이 되어 버린다.
+	/// 폴더 단위 나이 측정 시 활성 앱 로그 폴더 전부 '최근' 판정 문제
 	func testRulesWithAgeConditionJudgePerFile() {
 		for r in rules where r.minAgeDays > 0 {
 			XCTAssertEqual(r.granularity, .files, r.name)

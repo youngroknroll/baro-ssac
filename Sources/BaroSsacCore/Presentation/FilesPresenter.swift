@@ -1,4 +1,4 @@
-// 사용자 파일·앱 화면의 상태와 표시 규칙. UI 프레임워크에 의존하지 않는다.
+// 사용자 파일 · 앱 화면 상태와 표시 규칙 (UI 프레임워크 비의존)
 import Foundation
 
 public enum FileListMode: String, CaseIterable, Hashable, Sendable {
@@ -29,7 +29,7 @@ public enum SuggestionText {
 	}
 }
 
-/// 홈 폴더를 `~` 로 줄여 보여 준다.
+/// 홈 폴더 → `~` 축약 표시
 public enum HomePath {
 	public static func display(_ path: String, home: String) -> String {
 		let p = PathUtil.normalize(path)
@@ -58,11 +58,11 @@ public struct FileRow: Hashable, Identifiable {
 	public var sizeText: String { formatSize(sizeBytes) }
 }
 
-/// 같은 내용의 파일 묶음: 남길 원본 하나와 지워도 되는 사본들.
+/// 중복 묶음: 원본 1개(유지) + 사본(삭제 후보)
 public struct DuplicateGroup: Hashable, Identifiable {
 	public let keeper: FileRow
 	public let copies: [FileRow]
-	/// 사본을 모두 지우면 확보되는 크기.
+	/// 사본 전체 삭제 시 확보 용량
 	public let reclaimableBytes: Int64
 
 	public var id: String { keeper.path }
@@ -83,7 +83,7 @@ public struct FilesPresenter {
 
 	public mutating func load(_ report: FileReport) {
 		self.report = report
-		// 사용자 파일은 추천이 있어도 기본으로 고르지 않는다. 결정은 항상 사용자가 한다.
+		// 사용자 파일 기본 선택 없음 (추천 있어도) | 결정: 사용자
 		selected = []
 	}
 
@@ -145,7 +145,7 @@ public struct FilesPresenter {
 
 	// MARK: 중복 파일
 
-	/// 남길 원본과 그 사본들. 확보되는 크기 내림차순.
+	/// 원본 · 사본 묶음 | 정렬: 확보 용량 내림차순
 	public func duplicateGroups(now: Date) -> [DuplicateGroup] {
 		duplicateMembers()
 			.map { member in
@@ -168,7 +168,7 @@ public struct FilesPresenter {
 		}
 	}
 
-	/// 원본은 남기고 사본만 고른다.
+	/// 사본만 선택 (원본 유지)
 	public mutating func selectAllDuplicateCopies() {
 		for member in duplicateMembers() {
 			for copy in member.copies where !copy.isProtected {
@@ -186,7 +186,7 @@ public struct FilesPresenter {
 		}
 	}
 
-	/// 중복 묶음에 속한 항목(원본 포함) 가운데 고른 것.
+	/// 중복 묶음 항목(원본 포함) 중 선택분
 	public func selectedDuplicateItems() -> [FileItem] {
 		duplicateMembers()
 			.flatMap { [$0.keeper] + $0.copies }
@@ -197,12 +197,12 @@ public struct FilesPresenter {
 		selectedDuplicateItems().map { TrashRequest(path: $0.path, sizeBytes: $0.sizeBytes) }
 	}
 
-	/// 원본과 사본을 모두 고른 묶음의 수. 이대로 지우면 그 내용이 하나도 남지 않는다.
+	/// 원본 · 사본 전부 선택된 묶음 수 (삭제 시 내용 전부 소실)
 	public func fullySelectedDuplicateGroups() -> Int {
 		duplicateGroupsEmptied(by: selected)
 	}
 
-	/// `paths` 를 지우면 원본과 사본이 모두 사라지는 묶음의 수.
+	/// `paths` 삭제 시 원본 · 사본 전부 사라지는 묶음 수
 	public func duplicateGroupsEmptied(by paths: Set<String>) -> Int {
 		duplicateMembers().filter { member in
 			([member.keeper] + member.copies).allSatisfy { paths.contains($0.path) }
@@ -216,7 +216,7 @@ public struct FilesPresenter {
 		let copies: [FileItem]
 	}
 
-	/// 사본의 `.duplicate(keep:)` 로 원본과 사본을 묶는다. 사본은 경로순, 묶음은 원본 경로순.
+	/// 묶음 구성: 사본의 `.duplicate(keep:)` 기준 | 정렬: 사본 경로순 · 묶음 원본 경로순
 	private func duplicateMembers() -> [DuplicateMember] {
 		let all = allItems()
 		let byPath = Dictionary(all.map { ($0.path, $0) }, uniquingKeysWith: { first, _ in first })

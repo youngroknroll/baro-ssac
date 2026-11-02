@@ -87,7 +87,7 @@ internal final class FileScanUseCaseTests: XCTestCase {
 		XCTAssertEqual(report.summary(for: .movies)?.items.first?.suggestions, [.stale(since: lastUsed)])
 	}
 
-	/// 한 번도 열지 않은 파일은 Spotlight 의 마지막 사용일이 없다. 그때는 수정일로 판단한다.
+	/// 마지막 사용일 없음(미열람) → 수정일 기준
 	func testStaleFallsBackToModifiedDateWhenNeverOpened() {
 		let modified = now.addingTimeInterval(-days(500))
 		let report = scan([
@@ -116,7 +116,7 @@ internal final class FileScanUseCaseTests: XCTestCase {
 		XCTAssertEqual(report.summary(for: .movies)?.items.map(\.suggestions), [[], []])
 	}
 
-	/// 같은 내용이면 하나만 남긴다. 다운로드 폴더에 있는 사본을 지우자고 제안한다.
+	/// 내용 동일 → 1개 유지 · 다운로드 폴더 사본 삭제 제안
 	func testDuplicatesKeepTheCopyOutsideDownloads() {
 		let hasher = FakeHasher([
 			"/u/Documents/report.pdf": "same-content",
@@ -167,7 +167,7 @@ internal final class FileScanUseCaseTests: XCTestCase {
 		XCTAssertEqual(report.summary(for: .movies)?.items.first?.suggestions, [])
 	}
 
-	/// 크기와 앞부분이 같아도 전체 내용이 다르면 중복이 아니다.
+	/// 크기 · 앞부분 동일 + 전체 내용 다름 → 중복 아님
 	func testSameSizeAndSamePrefixButDifferentContentIsNotDuplicate() {
 		let hasher = FakeHasher(["/u/Movies/a.mov": "abc-1", "/u/Movies/b.mov": "abc-2"])
 		let report = scan(
@@ -181,7 +181,7 @@ internal final class FileScanUseCaseTests: XCTestCase {
 		XCTAssertEqual(report.summary(for: .movies)?.items.map(\.suggestions), [[], []])
 	}
 
-	/// 크기가 다르면 내용을 읽지 않는다. 표본이 다르면 전체를 읽지 않는다.
+	/// 크기 다름 → 내용 미읽음 | 표본 다름 → 전체 미읽음
 	func testContentIsReadOnlyWhenCheaperChecksMatch() {
 		let hasher = FakeHasher([
 			"/u/Movies/a.mov": "xyz-1", "/u/Movies/b.mov": "qrs-1", "/u/Movies/c.mov": "zzz",
@@ -222,7 +222,7 @@ internal final class FileScanUseCaseTests: XCTestCase {
 		XCTAssertEqual(item?.suggestions, [])
 	}
 
-	/// 패키지(.app, .key 등)는 내용을 해시하지 않는다 (디렉터리라 읽을 수 없고, 크기가 같아도 의미가 없다).
+	/// 패키지(.app · .key 등) 해시 제외 (디렉터리 · 크기 동일 무의미)
 	func testPackagesAreNotCheckedForDuplicates() {
 		let hasher = FakeHasher([:])
 		let report = scan(

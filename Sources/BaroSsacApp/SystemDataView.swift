@@ -1,131 +1,152 @@
 #if os(macOS)
-import SwiftUI
 import BaroSsacCore
+import SwiftUI
 
-/// 시스템 데이터(캐시·로그·개발 도구 찌꺼기) 화면.
+/// 시스템 데이터 화면 (캐시 · 로그 · 개발 도구 파일)
 internal struct SystemDataView: View {
 	@ObservedObject var model: ScanViewModel
 
 	var body: some View {
-		VStack(alignment: .leading, spacing: 14) {
-			header
-			list
-			footer
+		VStack(spacing: 0) {
+			if model.hasScanned {
+				content
+				ActionBar {
+					SelectionSummary(count: model.selectedCount, bytes: model.presenter.selectedBytes)
+				} trailing: {
+					TrashButton(enabled: model.canClean) { model.requestClean() }
+				}
+			} else {
+				emptyState
+			}
 		}
-		.padding(24)
-		.frame(minWidth: 600, minHeight: 560)
-		.alert("주의가 필요한 항목", isPresented: confirmationShown) {
+		.navigationTitle("시스템 데이터")
+		.navigationSubtitle(model.subtitle)
+		.scanToolbar(isBusy: model.isBusy) { model.scan() }
+		.alert("주의 항목 포함", isPresented: confirmationShown) {
 			Button("휴지통으로 보내기", role: .destructive) {
 				model.performClean(confirmed: model.pendingConfirmation ?? [])
 			}
 			Button("취소", role: .cancel) { model.pendingConfirmation = nil }
 		} message: {
 			let paths = model.pendingConfirmation ?? []
-			Text("다음 \(paths.count)개 항목은 복구하기 어려울 수 있습니다.\n\n" + paths.joined(separator: "\n"))
+			Text("복구 어려운 항목 \(paths.count)개\n\n" + paths.joined(separator: "\n"))
 		}
-		.alert("일부 항목을 보내지 못했습니다", isPresented: failuresShown) {
+		.alert("휴지통 이동 실패 항목", isPresented: failuresShown) {
 			Button("확인", role: .cancel) { model.failures = [] }
 		} message: {
-			Text(model.failures.prefix(10).map { "\($0.item.path)\n  \($0.error)" }.joined(separator: "\n"))
+			Text(model.failures.prefix(10).map { "\($0.item.path)\n\($0.error)" }.joined(separator: "\n\n"))
 		}
 	}
 
-	// MARK: - 상단: 도넛 + 숫자 + 스캔
+	// MARK: - 빈 화면
 
-	private var header: some View {
-		HStack(alignment: .center, spacing: 20) {
-			DonutChart(segments: model.segments, centerText: model.presenter.selectedText, caption: model.centerCaption)
-				.frame(width: 176, height: 176)
-			VStack(alignment: .leading, spacing: 4) {
-				Text(model.hasReport ? model.presenter.totalText : "—")
-					.font(.system(size: 30, weight: .semibold))
-				Text(model.status).foregroundStyle(.secondary)
-				Text(model.diskText).foregroundStyle(.secondary).padding(.top, 6)
-			}
-			Spacer()
-			Button("스캔") { model.scan() }
+	private var emptyState: some View {
+		ContentUnavailableView {
+			Label("시스템 데이터", systemImage: "internaldrive")
+		} description: {
+			Text("대상: 앱 캐시 · 오래된 로그 · 개발 도구 파일\n처리: 휴지통으로만 이동")
+		} actions: {
+			Button("스캔하기") { model.scan() }
+				.buttonStyle(.borderedProminent)
+				.controlSize(.large)
 				.disabled(model.isBusy)
-				.frame(minWidth: 96)
 		}
 	}
 
-	// MARK: - 가운데: 종류 · 위험도 · 용량 (목록이 곧 범례)
+	// MARK: - 내용
 
+	private var content: some View {
+		VStack(spacing: 16) {
+			HeroCard(
+				title: "정리 가능 용량",
+				value: model.hasReport ? model.presenter.totalText : "0 B",
+				facts: model.heroFacts,
+				notice: model.heroNotice
+			) {
+				DonutChart(
+					segments: model.segments,
+					centerText: model.donutCenter,
+					caption: model.donutCaption
+				)
+					.frame(width: 132, height: 132)
+			}
+			.padding(.horizontal, Design.pagePadding)
+			.padding(.top, Design.pagePadding)
+
+			if model.hasReport {
+				list
+			} else {
+				ContentUnavailableView(
+					"정리할 파일 없음",
+					systemImage: "checkmark.circle",
+					description: Text("제거 가능한 캐시 · 로그 없음")
+				)
+			}
+		}
+	}
+
+	/// 목록: 종류 · 위험도 · 용량 | 색 점 = 도넛 조각 색 (범례 겸용)
 	private var list: some View {
 		List {
 			ForEach(model.groups) { group in
 				DisclosureGroup {
 					ForEach(group.children) { child in
 						childRow(child)
+							.contextMenu { RevealMenu(path: child.path) }
 					}
 				} label: {
 					groupRow(group)
 				}
 			}
 		}
-		.listStyle(.inset(alternatesRowBackgrounds: true))
+		.listStyle(.inset)
 		.disabled(model.isBusy)
 	}
 
 	private func groupRow(_ g: GroupRow) -> some View {
-		HStack(spacing: 8) {
+		HStack(spacing: 10) {
 			Toggle("", isOn: groupBinding(g.name))
 				.toggleStyle(.checkbox)
 				.labelsHidden()
-			Circle().fill(Color(hex: g.color)).frame(width: 10, height: 10)
-			Text(g.title).fontWeight(.semibold)
-				.help(g.description)
+			Circle()
+				.fill(Palette.color(g.color))
+				.frame(width: 8, height: 8)
+			VStack(alignment: .leading, spacing: 1) {
+				Text(g.title).fontWeight(.semibold)
+				Text(g.description)
+					.font(.caption)
+					.foregroundStyle(.secondary)
+					.lineLimit(1)
+			}
+			.help(g.description)
 			Spacer()
-			Text(riskLabel(g.risk))
-				.foregroundStyle(riskColor(g.risk))
-				.frame(width: 80, alignment: .trailing)
-			Text(g.sizeText)
-				.fontWeight(.semibold)
-				.monospacedDigit()
-				.frame(width: 90, alignment: .trailing)
+			Tag(text: g.risk.label, tint: g.risk.tint)
+				.help(g.risk.help)
+			SizeLabel(text: g.sizeText, emphasized: true)
 		}
+		.padding(.vertical, 4)
 	}
 
 	private func childRow(_ c: ChildRow) -> some View {
-		HStack(spacing: 8) {
+		HStack(spacing: 10) {
 			Toggle("", isOn: itemBinding(c.path))
 				.toggleStyle(.checkbox)
 				.labelsHidden()
-			Text(c.label).help(c.path)
+			FileIcon(path: c.path, size: 16)
+			Text(c.label)
+				.lineLimit(1)
+				.truncationMode(.middle)
+				.help(c.path)
 			if let owner = c.inUseBy {
-				Text("실행 중")
-					.font(.caption)
-					.padding(.horizontal, 6)
-					.padding(.vertical, 1)
-					.background(Capsule().fill(Color.secondary.opacity(0.15)))
-					.foregroundStyle(.secondary)
-					.help("\(owner) 이(가) 실행 중입니다. 앱을 종료한 뒤 정리하세요.")
+				Tag(text: "실행 중", tint: .blue)
+					.help("실행 중: \(owner) · 앱 종료 후 정리 가능")
 			}
 			Spacer()
-			Text(c.sizeText)
-				.monospacedDigit()
-				.foregroundStyle(.secondary)
-				.frame(width: 90, alignment: .trailing)
-		}
-		.padding(.leading, 18)
-	}
-
-	// MARK: - 하단: 선택 합계 + 정리
-
-	private var footer: some View {
-		HStack {
-			if model.hasReport {
-				Text("\(model.selectedCount)개 선택 · \(model.presenter.selectedText)")
-			}
-			Spacer()
-			Button("휴지통으로 보내기") { model.requestClean() }
-				.disabled(!model.canClean)
-				.keyboardShortcut(.defaultAction)
-				.frame(minWidth: 160)
+			SizeLabel(text: c.sizeText)
 		}
 	}
 
-	// MARK: - 바인딩과 표시 규칙
+	// MARK: - 바인딩
 
 	private func itemBinding(_ path: String) -> Binding<Bool> {
 		Binding(
@@ -153,22 +174,6 @@ internal struct SystemDataView: View {
 			get: { !model.failures.isEmpty },
 			set: { if !$0 { model.failures = [] } }
 		)
-	}
-
-	private func riskLabel(_ risk: RiskLevel) -> String {
-		switch risk {
-		case .low: return "안전"
-		case .medium: return "재다운로드"
-		case .high: return "주의"
-		}
-	}
-
-	private func riskColor(_ risk: RiskLevel) -> Color {
-		switch risk {
-		case .low: return Color(hex: "#3a7d44")
-		case .medium: return Color(hex: "#b07d14")
-		case .high: return Color(hex: "#b3261e")
-		}
 	}
 }
 #endif

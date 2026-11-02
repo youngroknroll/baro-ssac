@@ -111,7 +111,7 @@ internal final class PresenterTests: XCTestCase {
 		XCTAssertEqual(p.highRiskSelectedPaths(), ["/u/B/x"])
 	}
 
-	/// 조각 순서: 종류별(용량순) → 그 외 사용 중 → 여유 공간. 합은 디스크 총 용량.
+	/// 조각 순서: 종류별(용량순) → 그 외 사용 중 → 여유 공간 | 합 = 디스크 총 용량
 	func testChartSegmentsFillTheWholeDiskInDisplayOrder() {
 		var p = Presenter(rules: rules)
 		p.load(report(
@@ -143,7 +143,7 @@ internal final class PresenterTests: XCTestCase {
 		XCTAssertNotEqual(colors["user-logs"], colors["app-caches"])
 	}
 
-	/// APFS 클론 등으로 정리 가능 용량이 사용량보다 크게 잡혀도 차트가 깨지지 않는다.
+	/// APFS 클론 등으로 정리 가능 용량 > 사용량이어도 차트 정상
 	func testOtherSegmentNeverGoesNegativeWhenSizesOverstate() {
 		var p = Presenter(rules: rules)
 		p.load(report(ScanItem(ruleName: "app-caches", path: "/u/Library/Caches/a", sizeBytes: 900, risk: .low)))
@@ -160,6 +160,18 @@ internal final class PresenterTests: XCTestCase {
 		p.load(report(ScanItem(ruleName: "app-caches", path: "/u/Library/Caches/a", sizeBytes: 100, risk: .low)))
 
 		XCTAssertEqual(p.chartSegments().map { $0.key }, ["app-caches"])
+	}
+
+	/// 0바이트 항목(예: 빈 로그) 목록 제외
+	func testZeroSizeItemsAreNotListedOrSelected() {
+		var p = Presenter(rules: rules)
+		p.load(report(
+			ScanItem(ruleName: "user-logs", path: "/u/Library/Logs/empty.log", sizeBytes: 0, risk: .low),
+			ScanItem(ruleName: "app-caches", path: "/u/Library/Caches/a", sizeBytes: 10, risk: .low)
+		))
+
+		XCTAssertEqual(p.groups().map(\.name), ["app-caches"])
+		XCTAssertEqual(p.selectedItems().map(\.path), ["/u/Library/Caches/a"])
 	}
 
 	func testEmptyReportGivesNoGroupsAndZeroTotal() {

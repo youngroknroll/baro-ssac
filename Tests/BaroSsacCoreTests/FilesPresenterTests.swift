@@ -43,7 +43,7 @@ internal final class FilesPresenterTests: XCTestCase {
 
 	// MARK: 목록
 
-	/// 사용자 파일은 추천이 있어도 기본으로 고르지 않는다.
+	/// 사용자 파일 기본 선택 없음 (추천 있어도)
 	func testNothingIsSelectedAfterLoading() {
 		let p = loaded([fileItem("/u/Downloads/a.dmg", 10, suggestions: [.installer])])
 

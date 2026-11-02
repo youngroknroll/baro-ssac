@@ -1,10 +1,10 @@
-// 테스트 더블: 포트를 메모리 위에서 구현한다.
+// 테스트 더블: 포트 인메모리 구현
 import Foundation
 @testable import BaroSsacCore
 
 internal let epoch = Date(timeIntervalSince1970: 1_767_225_600)  // 2026-01-01T00:00:00Z
 
-/// files: [경로: 바이트 크기]. 디렉터리는 파일 경로로부터 유추된다.
+/// files: [경로: 바이트 크기] | 디렉터리: 파일 경로에서 유추
 internal struct InMemoryFileSystem: FileSystemPort {
 	private let files: [String: Int64]
 	private let mtimes: [String: Date]
@@ -79,7 +79,7 @@ internal struct TrashError: LocalizedError {
 	var errorDescription: String? { "cannot trash \(path)" }
 }
 
-/// 호출을 기록해야 하므로 참조 타입이 필요하다.
+/// 참조 타입 (호출 기록용)
 internal final class SpyTrash: TrashPort {
 	private(set) var trashed: [String] = []
 	private let failOn: Set<String>
@@ -105,7 +105,7 @@ internal struct FakeRunningApps: RunningAppsPort {
 	func runningBundleIdentifiers() -> Set<String> { ids }
 }
 
-/// root → 그 아래 파일 목록. 없는 root 를 물으면 permissionDenied (exists 확인은 FileSystemPort 몫).
+/// root → 하위 파일 목록 | 미등록 root: permissionDenied (존재 확인은 FileSystemPort 담당)
 internal struct FakeWalker: FileWalkerPort {
 	let listings: [String: FileListing]
 
@@ -118,7 +118,7 @@ internal struct FakeWalker: FileWalkerPort {
 	}
 }
 
-/// 경로 → 내용. 표본 해시는 내용의 앞 3글자만 본다 (앞부분만 같은 파일을 2단계에서 걸러내는지 확인용).
+/// 경로 → 내용 | 표본 해시 = 앞 3글자 (앞부분만 같은 파일의 2단계 필터 확인용)
 internal final class FakeHasher: ContentHashPort {
 	let contents: [String: String]
 	private(set) var fullHashCount = 0

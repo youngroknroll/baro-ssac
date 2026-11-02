@@ -2,7 +2,7 @@
 import Foundation
 import BaroSsacCore
 
-/// 주어진 경로가 속한 볼륨의 용량. "여유"는 Finder가 보여 주는 값과 같은 기준(purgeable 포함)이다.
+/// 경로가 속한 볼륨 용량 | 여유 = Finder 표시 기준 (purgeable 포함)
 public struct LocalDisk: DiskPort {
 	private let path: String
 

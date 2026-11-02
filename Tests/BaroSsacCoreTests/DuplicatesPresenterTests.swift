@@ -1,7 +1,7 @@
 import XCTest
 @testable import BaroSsacCore
 
-/// 중복 파일 탭: 같은 내용의 파일을 묶음(원본 1 + 사본 N)으로 보여 준다.
+/// 중복 파일 탭: 내용 동일 파일 묶음 (원본 1 + 사본 N)
 internal final class DuplicatesPresenterTests: XCTestCase {
 	let now = epoch.addingTimeInterval(days(1000))
 
@@ -14,7 +14,7 @@ internal final class DuplicatesPresenterTests: XCTestCase {
 		)
 	}
 
-	/// 원본 report.pdf(4) + 사본 2개, 원본 movie.mov(9) + 사본 1개, 중복 아닌 notes.txt.
+	/// 원본 report.pdf(4) + 사본 2개 · 원본 movie.mov(9) + 사본 1개 · 중복 아님 notes.txt
 	private func loaded() -> FilesPresenter {
 		var p = FilesPresenter(home: "/u")
 		p.load(FileReport(summaries: [
@@ -63,7 +63,7 @@ internal final class DuplicatesPresenterTests: XCTestCase {
 		XCTAssertEqual(p.fullySelectedDuplicateGroups(), 0)
 	}
 
-	/// 원본까지 모두 고르면 그 내용이 하나도 남지 않는다. 막지는 않고 경고한다.
+	/// 원본까지 전부 선택 시 경고 대상 (차단 아님)
 	func testGroupsWithEveryCopySelectedAreCountedForAWarning() {
 		var p = loaded()
 		p.selectAllDuplicateCopies()
@@ -72,7 +72,7 @@ internal final class DuplicatesPresenterTests: XCTestCase {
 		XCTAssertEqual(p.fullySelectedDuplicateGroups(), 1)
 	}
 
-	/// 다른 카테고리를 지울 때 엉뚱하게 경고하지 않도록, 실제로 지울 경로만으로 판단한다.
+	/// 판단 기준: 실제 삭제 경로만 (다른 카테고리 삭제 시 오경고 방지)
 	func testGroupIsEmptiedOnlyWhenEveryMemberIsInTheTrashedPaths() {
 		let p = loaded()
 

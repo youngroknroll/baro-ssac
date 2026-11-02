@@ -2,7 +2,7 @@
 import BaroSsacCore
 import Foundation
 
-/// /Applications 와 ~/Applications 의 앱. 하위 폴더(예: /Applications/Utilities)는 한 단계까지 본다.
+/// 대상: /Applications · ~/Applications | 하위 폴더 1단계까지 (예: /Applications/Utilities)
 public struct LocalAppCatalog: AppCatalogPort {
 	private let roots: [String]
 	private let fs = LocalFileSystem()

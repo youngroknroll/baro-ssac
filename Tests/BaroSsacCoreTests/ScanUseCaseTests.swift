@@ -114,7 +114,7 @@ internal final class ScanUseCaseTests: XCTestCase {
 		XCTAssertEqual(report.largest(1).map { $0.path }, ["/u/Library/Caches/big"])
 	}
 
-	/// 앱 로그 폴더에 오늘 로그가 하나 있어도, 오래된 로그 파일들은 잡아야 한다.
+	/// 오늘 로그가 있는 폴더라도 오래된 로그 파일은 대상
 	func testFilesGranularityAppliesAgePerFileNotPerFolder() {
 		let rule = CleanupRule(name: "logs", root: "/u/Library/Logs", risk: .low, minAgeDays: 7, granularity: .files)
 		let fs = InMemoryFileSystem(

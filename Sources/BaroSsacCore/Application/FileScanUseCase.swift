@@ -47,7 +47,7 @@ public struct FileScanUseCase {
 			onProgress?(index + 1, scopes.count, scope.category)
 		}
 
-		// 중복은 카테고리를 넘나든다 (다운로드에 받은 사본과 문서의 원본).
+		// 중복 검사: 카테고리 간 (예: 다운로드 사본 ↔ 문서 원본)
 		let downloadsRoots = scopes.filter { $0.category == .downloads }.flatMap(\.roots)
 		let keepers = duplicateKeepers(in: collected.flatMap { $0.records }, downloadsRoots: downloadsRoots)
 		let now = clock.now()
@@ -92,8 +92,8 @@ public struct FileScanUseCase {
 
 	// MARK: - 중복
 
-	/// 중복 사본의 경로 → 남길 사본의 경로. 남길 사본 자신은 들어 있지 않다.
-	/// 비싼 순서대로 걸러낸다: 크기 → 앞·뒤 표본 해시 → 전체 해시.
+	/// 반환: 사본 경로 → 원본 경로 (원본 자신은 미포함)
+	/// 필터 순서 (저비용 → 고비용): 크기 → 앞 · 뒤 표본 해시 → 전체 해시
 	private func duplicateKeepers(in records: [FileRecord], downloadsRoots: [String]) -> [String: String] {
 		let candidates = records.filter {
 			!$0.isPackage && $0.sizeBytes >= policy.duplicateMinBytes && ProtectedPackages.reason(for: $0.path) == nil
@@ -113,7 +113,7 @@ public struct FileScanUseCase {
 		return result
 	}
 
-	/// 키가 같은 것끼리 묶어, 둘 이상인 묶음만 돌려준다. 키를 구하지 못한(nil) 항목은 버린다.
+	/// 같은 키끼리 묶음 · 2개 이상 묶음만 반환 | 키 nil 항목 제외
 	private func groups(of records: [FileRecord], by key: (FileRecord) -> String?) -> [[FileRecord]] {
 		guard records.count >= 2 else { return [] }
 		var buckets: [String: [FileRecord]] = [:]
@@ -124,7 +124,7 @@ public struct FileScanUseCase {
 		return buckets.values.filter { $0.count >= 2 }
 	}
 
-	/// 남길 사본 고르기: 다운로드 폴더 밖 → 더 오래된 것 → 경로 순.
+	/// 원본 선택 우선순위: 다운로드 폴더 밖 → 수정일 오래된 것 → 경로순
 	private func keepOrder(_ a: FileRecord, _ b: FileRecord, downloadsRoots: [String]) -> Bool {
 		let aInDownloads = downloadsRoots.contains { PathUtil.isStrictlyInside(a.path, root: $0) }
 		let bInDownloads = downloadsRoots.contains { PathUtil.isStrictlyInside(b.path, root: $0) }

@@ -1,8 +1,8 @@
-// 포트: 유스케이스가 바깥 세계에 요구하는 인터페이스.
+// 포트: 유스케이스 → 외부 인터페이스
 import Foundation
 
 public struct EntryStat: Hashable, Sendable {
-	public let sizeBytes: Int64       // 하위 트리 전체의 실제 디스크 사용량
+	public let sizeBytes: Int64       // 하위 트리 전체 실제 디스크 사용량
 	public let modifiedAt: Date
 	public let isSymlink: Bool
 
@@ -19,13 +19,13 @@ public enum FileSystemError: Error, Equatable {
 
 public protocol FileSystemPort {
 	func exists(_ path: String) -> Bool
-	/// 직계 자식 경로. 권한이 없으면 FileSystemError.permissionDenied.
+	/// 직계 자식 경로 | 권한 없음: FileSystemError.permissionDenied
 	func listChildren(_ path: String) throws -> [String]
-	/// 심볼릭 링크를 따라가지 않는다. 권한이 없으면 FileSystemError.permissionDenied.
+	/// 심볼릭 링크 미추적 | 권한 없음: FileSystemError.permissionDenied
 	func stat(_ path: String) throws -> EntryStat
-	/// 심볼릭 링크는 false. 하위 트리를 걷지 않는 가벼운 질의.
+	/// 심볼릭 링크: false | 하위 트리 미순회 (경량 질의)
 	func isDirectory(_ path: String) -> Bool
-	/// 하위 트리를 걷지 않는 가벼운 질의.
+	/// 하위 트리 미순회 (경량 질의)
 	func isSymlink(_ path: String) -> Bool
 }
 
@@ -34,7 +34,7 @@ public protocol TrashPort {
 }
 
 public protocol RunningAppsPort {
-	/// 지금 실행 중인 앱들의 번들 ID. 호출할 때마다 새로 조회한다.
+	/// 실행 중 앱 번들 ID | 호출마다 새로 조회
 	func runningBundleIdentifiers() -> Set<String>
 }
 

@@ -23,7 +23,7 @@ internal final class CleanUseCaseTests: XCTestCase {
 		dryRun: Bool = true,
 		confirmedPaths: Set<String> = []
 	) -> CleanResult {
-		// 기본 fs: 요청된 항목이 모두 실제로 존재하는 상태
+		// 기본 fs: 요청 항목 전부 존재
 		let fs: FileSystemPort = fs
 			?? InMemoryFileSystem(Dictionary(uniqueKeysWithValues: items.map { ($0.path + "/f", $0.sizeBytes) }))
 		return CleanUseCase(trash: trash, fs: fs, rules: rules)
@@ -86,7 +86,7 @@ internal final class CleanUseCaseTests: XCTestCase {
 		XCTAssertEqual(trash.trashed, ["/u/.npm/_cacache"])
 	}
 
-	/// 캐시 DB의 일부만 지워 일관성을 깨는 것을 막는다.
+	/// 캐시 DB 부분 삭제 방지 (일관성)
 	func testRootGranularityRejectsPartialChildren() {
 		let trash = SpyTrash()
 
@@ -96,7 +96,7 @@ internal final class CleanUseCaseTests: XCTestCase {
 		XCTAssertEqual(result.entries.first?.outcome, .rejectedOutsideRules)
 	}
 
-	/// 다른 규칙 이름을 붙여 위험도를 낮춰 우회하는 것을 막는다.
+	/// 다른 규칙 이름으로 위험도 우회 방지
 	func testItemMustBelongToTheRuleItClaims() {
 		let trash = SpyTrash()
 		let forged = ScanItem(
@@ -149,7 +149,7 @@ internal final class CleanUseCaseTests: XCTestCase {
 		XCTAssertEqual(result.entries.first?.outcome, .stale)
 	}
 
-	/// 실행 중인 앱의 캐시를 지우면 앱이 오작동할 수 있으므로, 사용자가 골랐어도 보내지 않는다.
+	/// 실행 중 앱 캐시: 사용자 선택이어도 미이동 (앱 오작동 방지)
 	func testItemOfAppRunningAtCleanTimeIsNotTrashed() {
 		let trash = SpyTrash()
 		let items = [item("/u/Library/Caches/com.spotify.client"), item("/u/Library/Caches/Homebrew", 40)]
@@ -166,7 +166,7 @@ internal final class CleanUseCaseTests: XCTestCase {
 		XCTAssertEqual(result.freedBytes, 40)
 	}
 
-	/// 스캔 때는 실행 중이었어도 정리 시점에 앱을 껐다면 보낸다. 판단 기준은 '지금'이다.
+	/// 판단 기준: 정리 시점 (스캔 후 앱 종료 시 이동)
 	func testItemOfAppThatQuitSinceScanIsTrashed() {
 		let trash = SpyTrash()
 		let scanned = ScanItem(

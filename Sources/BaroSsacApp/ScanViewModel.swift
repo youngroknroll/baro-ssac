@@ -6,8 +6,10 @@ import BaroSsacMac
 @MainActor
 internal final class ScanViewModel: ObservableObject {
 	@Published private(set) var presenter: Presenter
-	@Published var status = "스캔을 누르면 정리할 수 있는 데이터를 찾습니다"
+	/// 진행 상황 · 직전 결과 알림 (창 부제) | 빈 값이면 요약 표시
+	@Published var status = ""
 	@Published var isBusy = false
+	@Published private(set) var hasScanned = false
 	@Published var pendingConfirmation: [String]? = nil
 	@Published var failures: [CleanEntry] = []
 
@@ -30,13 +32,36 @@ internal final class ScanViewModel: ObservableObject {
 	var selectedCount: Int { presenter.selectedItems().count }
 	var centerCaption: String { presenter.selectedBytes > 0 ? "선택" : "" }
 
-	var diskText: String {
-		guard let disk = presenter.disk else { return "" }
-		var text = "디스크 \(formatSize(disk.totalBytes)) · 여유 \(formatSize(disk.freeBytes))"
+	/// 도넛 가운데: 디스크 사용률 (요약 카드 큰 숫자와 중복 방지)
+	var donutCenter: String {
+		guard let disk = presenter.disk, disk.totalBytes > 0 else { return presenter.selectedText }
+		return "\(Int((Double(disk.usedBytes) / Double(disk.totalBytes) * 100).rounded()))%"
+	}
+
+	var donutCaption: String { presenter.disk == nil ? centerCaption : "사용 중" }
+
+	/// 요약 카드 행: 현재 남은 용량, 고른 항목 제거 시 남는 용량
+	var heroFacts: [HeroFact] {
+		guard let disk = presenter.disk else { return [] }
+		var facts = [HeroFact(label: "현재 남은 용량", value: formatSize(disk.freeBytes))]
 		if presenter.selectedBytes > 0 {
-			text += " → 비우면 \(formatSize(disk.freeBytes + presenter.selectedBytes))"
+			facts.append(HeroFact(
+				label: "고른 항목 제거 시",
+				value: formatSize(disk.freeBytes + presenter.selectedBytes),
+				emphasized: true
+			))
 		}
-		return text
+		return facts
+	}
+
+	var heroNotice: String? {
+		hasReport && presenter.selectedBytes == 0 ? "제거할 항목을 선택하세요" : nil
+	}
+
+	var subtitle: String {
+		if !status.isEmpty { return status }
+		guard hasScanned else { return "캐시 · 로그 · 개발 도구 파일" }
+		return hasReport ? "\(presenter.groups().count)가지 종류 · \(presenter.totalText)" : "정리할 파일 없음"
 	}
 
 	// MARK: 선택
@@ -53,12 +78,12 @@ internal final class ScanViewModel: ObservableObject {
 
 	func scan() {
 		isBusy = true
-		status = "스캔 중…"
+		status = "살펴보는 중…"
 		let container = self.container
 		Task.detached(priority: .userInitiated) { [weak self] in
 			let report = container.scan.execute(container.rules) { done, total, rule in
 				Task { @MainActor in
-					self?.status = "스캔 중 (\(done)/\(total)) · \(rule.title)"
+					self?.status = "살펴보는 중 \(done)/\(total) · \(rule.title)"
 				}
 			}
 			await MainActor.run { self?.finishScan(report) }
@@ -69,17 +94,12 @@ internal final class ScanViewModel: ObservableObject {
 		presenter.load(report)
 		presenter.setDisk(container.disk.usage())
 		let denied = report.skipped.filter { $0.reason == .permissionDenied }.count
-		if presenter.groups().isEmpty {
-			status = "정리할 데이터가 없습니다"
-		} else if denied > 0 {
-			status = "확보 가능 · 권한이 없어 건너뛴 항목 \(denied)개"
-		} else {
-			status = "확보 가능"
-		}
+		status = denied > 0 ? "권한 없음으로 건너뛴 위치 \(denied)곳" : ""
 		if let notice = cleanNotice {
 			status = notice
 			cleanNotice = nil
 		}
+		hasScanned = true
 		isBusy = false
 	}
 
@@ -97,7 +117,7 @@ internal final class ScanViewModel: ObservableObject {
 	func performClean(confirmed: [String]) {
 		pendingConfirmation = nil
 		isBusy = true
-		status = "휴지통으로 보내는 중…"
+		status = "휴지통으로 옮기는 중…"
 		let items = presenter.selectedItems()
 		let container = self.container
 		Task.detached(priority: .userInitiated) { [weak self] in
@@ -108,12 +128,12 @@ internal final class ScanViewModel: ObservableObject {
 
 	private func finishClean(_ result: CleanResult) {
 		failures = result.entries.filter { $0.outcome == .failed }
-		var text = "\(formatSize(result.freedBytes)) 를 휴지통으로 보냈습니다 · 비우면 공간이 확보됩니다"
+		var text = "휴지통으로 이동 \(formatSize(result.freedBytes)) · 휴지통 비우기 후 공간 확보"
 		let inUse = result.entries.filter { $0.outcome == .inUse }.count
 		if inUse > 0 {
-			text += " · 실행 중이라 건너뛴 항목 \(inUse)개"
+			text += " · 실행 중 앱 항목 \(inUse)개 건너뜀"
 		}
-		// 바로 이어지는 재스캔이 상태 문구를 덮어쓰므로, 재스캔이 끝난 뒤에 보여 준다.
+		// 결과 알림: 재스캔 종료 후 표시 (재스캔이 상태 문구를 덮어씀)
 		cleanNotice = text
 		isBusy = false
 		scan()

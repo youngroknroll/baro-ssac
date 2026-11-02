@@ -3,7 +3,7 @@ import Darwin
 import Foundation
 import BaroSsacCore
 
-/// FileSystemPort의 실제 구현. 심볼릭 링크는 절대 따라가지 않는다.
+/// FileSystemPort 실제 구현 | 심볼릭 링크 미추적
 public struct LocalFileSystem: FileSystemPort {
 	private let fm = FileManager.default
 
@@ -50,8 +50,8 @@ public struct LocalFileSystem: FileSystemPort {
 		var newest = top.st_mtimespec.tv_sec
 
 		if (top.st_mode & S_IFMT) == S_IFDIR {
-			// 최상위 디렉터리를 못 읽으면 permissionDenied 를 그대로 올린다 (포트 계약).
-			// 그 아래의 읽을 수 없는 폴더는 건너뛴다.
+			// 최상위 읽기 불가: permissionDenied 전파 (포트 계약)
+			// 하위 읽기 불가 폴더: 건너뜀
 			var stack = [path]
 			var first = true
 			while let dir = stack.popLast() {
@@ -84,7 +84,7 @@ public struct LocalFileSystem: FileSystemPort {
 		let ino: ino_t
 	}
 
-	/// 하드링크는 한 번만 센다. 논리 크기가 아닌 실제 할당 블록 기준.
+	/// 하드링크 1회만 집계 | 기준: 실제 할당 블록 (논리 크기 아님)
 	private static func allocated(_ st: Darwin.stat, _ seen: inout Set<InodeKey>) -> Int64 {
 		let key = InodeKey(dev: st.st_dev, ino: st.st_ino)
 		if seen.contains(key) { return 0 }

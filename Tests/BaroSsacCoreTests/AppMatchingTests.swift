@@ -14,7 +14,7 @@ internal final class AppMatchingTests: XCTestCase {
 		XCTAssertEqual(owner, "com.spotify.client")
 	}
 
-	/// 앱이 하위 캐시를 `번들ID.무엇` 폴더로 따로 두는 경우.
+	/// 하위 캐시를 `번들ID.이름` 폴더로 분리한 앱
 	func testFolderPrefixedWithBundleIDAndDotIsOwned() {
 		XCTAssertEqual(
 			AppMatching.owner(of: "/u/Library/Caches/com.apple.Safari.SafeBrowsing", running: running),
@@ -22,7 +22,7 @@ internal final class AppMatchingTests: XCTestCase {
 		)
 	}
 
-	/// 이름이 비슷할 뿐인 다른 앱을 실행 중으로 착각하지 않는다.
+	/// 유사 이름 앱 오인 방지
 	func testPrefixWithoutDotIsNotOwned() {
 		XCTAssertNil(AppMatching.owner(of: "/u/Library/Caches/com.spotify.client2", running: running))
 	}

@@ -2,12 +2,12 @@
 import BaroSsacCore
 import Foundation
 
-/// 컴포지션 루트: 실제 어댑터를 유스케이스에 연결한다. UI는 여기서 만든 객체만 사용한다.
+/// 컴포지션 루트: 실제 어댑터 → 유스케이스 연결 | UI 는 이 객체만 사용
 public struct AppContainer {
 	public let home: String
 	public let disk: DiskPort
 
-	// 시스템 데이터(캐시 규칙)
+	// 시스템 데이터 (캐시 규칙)
 	public let rules: [CleanupRule]
 	public let scan: ScanUseCase
 	public let clean: CleanUseCase
@@ -45,7 +45,7 @@ public struct AppContainer {
 		self.trashApps = trashApps
 	}
 
-	/// 주의: 앱 샌드박스가 켜져 있으면 홈이 컨테이너 경로가 되어 아무것도 찾지 못한다.
+	/// 주의: 앱 샌드박스 사용 시 홈 = 컨테이너 경로 → 탐색 결과 없음
 	public static func live(home: String = FileManager.default.homeDirectoryForCurrentUser.path) -> AppContainer {
 		let rules = DefaultRules.rules(home: home)
 		let fs = LocalFileSystem()

@@ -1,10 +1,10 @@
-// 도메인 모델: IO에 의존하지 않는 순수 값 타입.
+// 도메인 모델: IO 비의존 순수 값 타입
 import Foundation
 
 public enum RiskLevel: String, Hashable, Sendable {
-	case low      // 앱이 자동으로 다시 만드는 데이터
-	case medium   // 재생성에 시간이 들거나 다시 내려받아야 함
-	case high     // 사용자 데이터일 수 있음 (명시적 확인 필요)
+	case low      // 앱이 자동 재생성하는 데이터
+	case medium   // 재생성 시간 소요 · 재다운로드 필요
+	case high     // 사용자 데이터 가능성 (명시적 확인 필요)
 }
 
 public enum SkipReason: String, Hashable, Sendable {
@@ -12,9 +12,9 @@ public enum SkipReason: String, Hashable, Sendable {
 }
 
 public enum Granularity: String, Hashable, Sendable {
-	case root       // 루트를 통째로 하나의 항목으로 (일관성이 필요한 캐시 DB)
-	case children   // 루트의 직계 자식마다 하나의 항목으로 (앱별 캐시 폴더)
-	case files      // 재귀적으로 파일마다 하나의 항목으로 (나이 조건을 파일 단위로)
+	case root       // 루트 전체 = 항목 1개 (일관성 필요 캐시 DB)
+	case children   // 루트 직계 자식 = 항목 1개씩 (앱별 캐시 폴더)
+	case files      // 하위 파일 = 항목 1개씩 (나이 조건 파일 단위)
 }
 
 public struct CleanupRule: Hashable, Sendable {
@@ -23,9 +23,9 @@ public struct CleanupRule: Hashable, Sendable {
 	public let risk: RiskLevel
 	public let minAgeDays: Int
 	public let granularity: Granularity
-	public let exclude: [String]      // 루트 기준 상대 경로에 대한 glob 패턴
-	public let title: String          // 목록에 보이는 짧은 이름
-	public let description: String    // 왜 지워도 되는지 한 줄 설명
+	public let exclude: [String]      // 제외 glob 패턴 (루트 기준 상대 경로)
+	public let title: String          // 목록 표시용 짧은 이름
+	public let description: String    // 삭제 가능 근거 (한 줄)
 
 	public init(
 		name: String,
@@ -53,7 +53,7 @@ public struct ScanItem: Hashable, Sendable {
 	public let path: String
 	public let sizeBytes: Int64
 	public let risk: RiskLevel
-	/// 스캔 시점에 이 항목을 쓰고 있던 실행 중인 앱의 번들 ID. 표시용이며, 정리 여부는 정리 시점에 다시 판단한다.
+	/// 스캔 시점 사용 중인 앱 번들 ID (표시용) | 정리 가능 여부: 정리 시점 재판단
 	public let inUseBy: String?
 
 	public init(ruleName: String, path: String, sizeBytes: Int64, risk: RiskLevel, inUseBy: String? = nil) {
@@ -104,9 +104,9 @@ public enum CleanOutcome: String, Hashable, Sendable {
 	case trashed
 	case rejectedOutsideRules
 	case needsConfirmation
-	case stale       // 스캔 이후 사라졌거나 심볼릭 링크로 바뀜
-	case inUse       // 정리 시점에 이 항목의 앱이 실행 중
-	case protected   // 앱이 관리하는 라이브러리이거나 macOS 기본 앱
+	case stale       // 스캔 이후 삭제 · 심볼릭 링크로 변경
+	case inUse       // 정리 시점 해당 앱 실행 중
+	case protected   // 앱 관리 라이브러리 · macOS 기본 앱
 	case failed
 }
 

@@ -6,7 +6,7 @@ internal final class ProtectedPackagesTests: XCTestCase {
 		XCTAssertNotNil(ProtectedPackages.reason(for: "/u/Pictures/Photos Library.photoslibrary"))
 	}
 
-	/// 라이브러리 안의 원본 사진 하나만 지워도 사진 앱의 데이터베이스와 어긋난다.
+	/// 라이브러리 내부 파일 1개 삭제만으로도 사진 앱 DB 불일치
 	func testFilesInsideALibraryAreProtected() {
 		XCTAssertNotNil(ProtectedPackages.reason(for: "/u/Pictures/Photos Library.photoslibrary/originals/A/x.heic"))
 	}
