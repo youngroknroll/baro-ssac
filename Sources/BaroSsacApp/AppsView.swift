@@ -9,6 +9,13 @@ internal struct AppsView: View {
 		VStack(spacing: 0) {
 			if model.presenter.isLoaded {
 				content
+				ActionBar {
+					selectionSummary
+				} trailing: {
+					TrashButton(enabled: model.canUninstallSelected, title: "삭제…") {
+						model.requestUninstallSelected()
+					}
+				}
 			} else {
 				emptyState
 			}
@@ -35,7 +42,7 @@ internal struct AppsView: View {
 		ContentUnavailableView {
 			Label("응용 프로그램", systemImage: "square.grid.2x2")
 		} description: {
-			Text("크기: 앱 + 설정 · 캐시 · 데이터 합산\n표시: 1년 넘게 미사용 앱")
+			Text("크기: 앱 + 설정 · 캐시 · 데이터 합산\n표시: 1년 넘게 미사용 앱\n삭제: 앱 선택 → 삭제… (⌘⌫) · 관련 파일 함께")
 		} actions: {
 			Button("스캔하기") { model.scan() }
 				.buttonStyle(.borderedProminent)
@@ -71,9 +78,14 @@ internal struct AppsView: View {
 				description: Text("전체 목록: 툴바의 '전체 (크기순)'")
 			)
 		} else {
-			List(rows) { row in
+			List(rows, selection: $model.selectedApp) { row in
 				appRow(row)
-					.contextMenu { RevealMenu(path: row.path) }
+					.contextMenu {
+						Button("삭제…") { model.requestUninstall(row.path) }
+							.disabled(!model.canUninstall(row.path))
+						Divider()
+						RevealMenu(path: row.path)
+					}
 			}
 			.listStyle(.inset)
 		}
@@ -95,17 +107,21 @@ internal struct AppsView: View {
 				Tag(text: reason)
 			}
 			SizeLabel(text: row.sizeText, emphasized: true)
-			Button {
-				model.requestUninstall(row.path)
-			} label: {
-				Image(systemName: "trash")
-			}
-			.buttonStyle(.borderless)
-			.help(row.protectedReason == nil ? "\(row.name) 삭제" : "macOS 기본 앱 · 삭제 불가")
-			.disabled(row.protectedReason != nil || model.isBusy)
-			.opacity(row.protectedReason == nil ? 1 : 0)
 		}
 		.padding(.vertical, 4)
+	}
+
+	/// 미선택: 안내 한 줄 | 선택: 앱 이름 · 삭제 시 용량 (보호 앱은 삭제 불가)
+	@ViewBuilder
+	private var selectionSummary: some View {
+		if let facts = model.selectionFacts {
+			HStack(spacing: 6) {
+				Text(facts.name).fontWeight(.semibold).lineLimit(1)
+				Text(facts.detail).monospacedDigit().foregroundStyle(.secondary)
+			}
+		} else {
+			Text("삭제할 앱을 선택하세요").foregroundStyle(.secondary)
+		}
 	}
 
 	private var sheetShown: Binding<Bool> {

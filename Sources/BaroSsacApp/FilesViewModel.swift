@@ -80,13 +80,14 @@ internal final class FilesViewModel: ObservableObject {
 		isBusy = true
 		status = "살펴보는 중…"
 		let container = self.container
-		Task.detached(priority: .userInitiated) { [weak self] in
-			let report = container.fileScan.execute(container.fileScopes) { done, total, category in
-				Task { @MainActor in
-					self?.status = "살펴보는 중 \(done)/\(total) · \(category.title)"
+		Task {
+			let report = await Task.detached(priority: .userInitiated) {
+				container.fileScan.execute(container.fileScopes) { done, total, category in
+					let title = category.title
+					Task { @MainActor in self.status = "살펴보는 중 \(done)/\(total) · \(title)" }
 				}
-			}
-			await MainActor.run { self?.finishScan(report) }
+			}.value
+			finishScan(report)
 		}
 	}
 
@@ -171,9 +172,11 @@ internal final class FilesViewModel: ObservableObject {
 		status = "휴지통으로 옮기는 중…"
 		let requests = selectedItems(target).map { TrashRequest(path: $0.path, sizeBytes: $0.sizeBytes) }
 		let container = self.container
-		Task.detached(priority: .userInitiated) { [weak self] in
-			let result = container.trashFiles.execute(requests, dryRun: false)
-			await MainActor.run { self?.finishTrash(result) }
+		Task {
+			let result = await Task.detached(priority: .userInitiated) {
+				container.trashFiles.execute(requests, dryRun: false)
+			}.value
+			finishTrash(result)
 		}
 	}
 

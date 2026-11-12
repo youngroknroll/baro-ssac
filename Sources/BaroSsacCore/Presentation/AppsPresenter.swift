@@ -94,6 +94,12 @@ public struct AppsPresenter {
 		}
 	}
 
+	/// 삭제 가능: 스캔 결과에 있음 · 보호 앱 아님
+	public func canUninstall(_ appPath: String) -> Bool {
+		guard let item = item(appPath) else { return false }
+		return !item.isProtected
+	}
+
 	/// 반환: 앱 번들 + 선택 관련 파일 | 보호 앱: 빈 목록
 	public func uninstallRequests(for appPath: String) -> [TrashRequest] {
 		guard let item = item(appPath), !item.isProtected else { return [] }

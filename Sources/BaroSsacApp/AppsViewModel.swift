@@ -10,6 +10,8 @@ internal final class AppsViewModel: ObservableObject {
 	/// 진행 상황 · 직전 결과 알림 (창 부제) | 빈 값이면 요약 표시
 	@Published var status = ""
 	@Published var isBusy = false
+	/// 목록에서 고른 앱 경로 (단일 선택)
+	@Published var selectedApp: String?
 	/// 삭제 확인 시트 대상 앱 경로
 	@Published var uninstalling: String?
 	@Published var failures: [TrashEntry] = []
@@ -53,14 +55,20 @@ internal final class AppsViewModel: ObservableObject {
 		isBusy = true
 		status = "앱을 살펴보는 중…"
 		let container = self.container
-		Task.detached(priority: .userInitiated) { [weak self] in
-			let items = container.appScan.execute()
-			await MainActor.run { self?.finishScan(items) }
+		Task {
+			let items = await Task.detached(priority: .userInitiated) {
+				container.appScan.execute()
+			}.value
+			finishScan(items)
 		}
 	}
 
 	private func finishScan(_ items: [AppItem]) {
 		presenter.load(items)
+		// 삭제된 앱 선택 해제
+		if let path = selectedApp, presenter.item(path) == nil {
+			selectedApp = nil
+		}
 		status = notice ?? ""
 		notice = nil
 		isBusy = false
@@ -72,8 +80,38 @@ internal final class AppsViewModel: ObservableObject {
 		presenter.setLeftover(path, of: appPath, on)
 	}
 
+	/// 현재 보기(전체 · 추천)에 보이는 선택 행 | 숨겨진 앱: nil
+	var selectedRow: AppRow? {
+		guard let path = selectedApp else { return nil }
+		return rows.first { $0.path == path }
+	}
+
+	func canUninstall(_ appPath: String) -> Bool {
+		!isBusy && presenter.canUninstall(appPath)
+	}
+
+	var canUninstallSelected: Bool {
+		guard let row = selectedRow else { return false }
+		return canUninstall(row.path)
+	}
+
+	/// 하단 작업 막대 행: 앱 이름 · 삭제 시 확보 용량 (앱 + 기본 선택 관련 파일)
+	var selectionFacts: (name: String, detail: String)? {
+		guard let row = selectedRow else { return nil }
+		if let reason = row.protectedReason {
+			return (row.name, "\(reason) · 삭제 불가")
+		}
+		return (row.name, "삭제 시 \(formatSize(presenter.uninstallBytes(for: row.path)))")
+	}
+
 	func requestUninstall(_ appPath: String) {
+		guard canUninstall(appPath) else { return }
 		uninstalling = appPath
+	}
+
+	func requestUninstallSelected() {
+		guard let row = selectedRow else { return }
+		requestUninstall(row.path)
 	}
 
 	func performUninstall() {
@@ -83,9 +121,11 @@ internal final class AppsViewModel: ObservableObject {
 		status = "휴지통으로 옮기는 중…"
 		let requests = presenter.uninstallRequests(for: appPath)
 		let container = self.container
-		Task.detached(priority: .userInitiated) { [weak self] in
-			let result = container.trashApps.execute(requests, dryRun: false)
-			await MainActor.run { self?.finishUninstall(result) }
+		Task {
+			let result = await Task.detached(priority: .userInitiated) {
+				container.trashApps.execute(requests, dryRun: false)
+			}.value
+			finishUninstall(result)
 		}
 	}
 

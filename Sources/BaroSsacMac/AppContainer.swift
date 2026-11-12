@@ -3,7 +3,9 @@ import BaroSsacCore
 import Foundation
 
 /// 컴포지션 루트: 실제 어댑터 → 유스케이스 연결 | UI 는 이 객체만 사용
-public struct AppContainer {
+/// - 백그라운드 작업으로 전달 가능 (`Sendable`)
+/// - `@unchecked` 근거: 모든 필드 `let` | 어댑터는 저장 상태 없이 지역 변수만 사용
+public struct AppContainer: @unchecked Sendable {
 	public let home: String
 	public let disk: DiskPort
 

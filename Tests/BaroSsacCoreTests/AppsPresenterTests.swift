@@ -84,6 +84,15 @@ internal final class AppsPresenterTests: XCTestCase {
 		XCTAssertEqual(p.uninstallRequests(for: slackPath).map(\.path), [slackPath])
 	}
 
+	/// 하단 삭제 버튼 활성 조건: 스캔한 앱 · macOS 기본 앱 아님
+	func testOnlyScannedNonProtectedAppsCanBeUninstalled() {
+		let p = loaded([slack, safari])
+
+		XCTAssertTrue(p.canUninstall(slackPath))
+		XCTAssertFalse(p.canUninstall("/Applications/Safari.app"))
+		XCTAssertFalse(p.canUninstall("/Applications/Unknown.app"))
+	}
+
 	func testProtectedAppsProduceNoRequests() {
 		let p = loaded([safari])
 

@@ -80,13 +80,14 @@ internal final class ScanViewModel: ObservableObject {
 		isBusy = true
 		status = "살펴보는 중…"
 		let container = self.container
-		Task.detached(priority: .userInitiated) { [weak self] in
-			let report = container.scan.execute(container.rules) { done, total, rule in
-				Task { @MainActor in
-					self?.status = "살펴보는 중 \(done)/\(total) · \(rule.title)"
+		Task {
+			let report = await Task.detached(priority: .userInitiated) {
+				container.scan.execute(container.rules) { done, total, rule in
+					let title = rule.title
+					Task { @MainActor in self.status = "살펴보는 중 \(done)/\(total) · \(title)" }
 				}
-			}
-			await MainActor.run { self?.finishScan(report) }
+			}.value
+			finishScan(report)
 		}
 	}
 
@@ -120,9 +121,11 @@ internal final class ScanViewModel: ObservableObject {
 		status = "휴지통으로 옮기는 중…"
 		let items = presenter.selectedItems()
 		let container = self.container
-		Task.detached(priority: .userInitiated) { [weak self] in
-			let result = container.clean.execute(items, dryRun: false, confirmedPaths: Set(confirmed))
-			await MainActor.run { self?.finishClean(result) }
+		Task {
+			let result = await Task.detached(priority: .userInitiated) {
+				container.clean.execute(items, dryRun: false, confirmedPaths: Set(confirmed))
+			}.value
+			finishClean(result)
 		}
 	}
 

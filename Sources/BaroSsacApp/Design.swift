@@ -304,11 +304,13 @@ internal struct SelectionSummary: View {
 /// 휴지통 버튼: ⌘⌫ (Finder 동일) | Return 키 미지정 (삭제 동작)
 internal struct TrashButton: View {
 	let enabled: Bool
+	/// 기본: 휴지통으로 보내기 | 확인 창을 거치는 경우: "삭제…"
+	var title = "휴지통으로 보내기"
 	let action: () -> Void
 
 	var body: some View {
 		Button(action: action) {
-			Label("휴지통으로 보내기", systemImage: "trash")
+			Label(title, systemImage: "trash")
 		}
 		.buttonStyle(.borderedProminent)
 		.controlSize(.large)
