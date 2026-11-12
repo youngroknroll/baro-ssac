@@ -201,11 +201,16 @@ internal struct UninstallSheet: View {
 								Spacer()
 								SizeLabel(text: leftover.sizeText)
 							}
+							// 큰 폴더 내용 직접 확인용
+							.contextMenu { RevealMenu(path: leftover.path) }
 						}
-						Label("Containers: 앱이 저장한 문서 · 데이터 포함 가능", systemImage: "info.circle")
-							.font(.caption)
-							.foregroundStyle(.secondary)
-							.padding(.top, 4)
+						// 안내: Containers 폴더가 목록에 있을 때만
+						if leftovers.contains(where: { $0.path.contains("/Library/Containers/") }) {
+							Label("Containers: 앱이 저장한 문서 · 데이터 포함 가능", systemImage: "info.circle")
+								.font(.caption)
+								.foregroundStyle(.secondary)
+								.padding(.top, 4)
+						}
 					}
 				}
 				.padding(20)
