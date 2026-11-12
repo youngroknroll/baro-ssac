@@ -58,11 +58,29 @@ internal final class AppsPresenterTests: XCTestCase {
 		let p = loaded([slack])
 
 		let rows = p.leftoverRows(for: slackPath)
-		XCTAssertEqual(rows.map(\.isSelected), [true, false])
-		XCTAssertEqual(rows.map(\.display), [
-			"~/Library/Containers/com.tinyspeck.slackmacgap",
-			"~/Library/Application Support/Slack",
-		])
+		let selected = Dictionary(uniqueKeysWithValues: rows.map { ($0.display, $0.isSelected) })
+		XCTAssertEqual(selected["~/Library/Containers/com.tinyspeck.slackmacgap"], true)
+		XCTAssertEqual(selected["~/Library/Application Support/Slack"], false)
+	}
+
+	/// 확인 창 관련 파일 순서: 큰 것부터 (용량 대부분을 차지하는 폴더 바로 확인)
+	func testLeftoverRowsAreSortedBySizeDescending() {
+		let p = loaded([slack])
+
+		XCTAssertEqual(p.leftoverRows(for: slackPath).map(\.sizeBytes), [300, 40])
+	}
+
+	/// 행 크기 = 앱 + 데이터 합계 | 설명 줄: 앱 본체와 데이터 분리 (Finder 앱 크기와 비교 가능)
+	func testRowsSplitAppBundleSizeFromItsDataSize() throws {
+		let rows = loaded([slack, safari]).rows(mode: .all, now: now)
+
+		let slackRow = try XCTUnwrap(rows.first { $0.name == "Slack" })
+		let safariRow = try XCTUnwrap(rows.first { $0.name == "Safari" })
+		XCTAssertEqual(slackRow.appBytes, 100)
+		XCTAssertEqual(slackRow.dataBytes, 340)
+		XCTAssertEqual(slackRow.totalBytes, 440)
+		XCTAssertEqual(slackRow.breakdownText, "앱 100 B · 데이터 340 B")
+		XCTAssertEqual(safariRow.breakdownText, "앱 900 B")
 	}
 
 	func testUninstallRequestsIncludeTheAppWithBundleIDAndSelectedLeftovers() {

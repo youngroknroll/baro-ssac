@@ -3,13 +3,22 @@ import Foundation
 public struct AppRow: Hashable, Identifiable {
 	public let path: String
 	public let name: String
-	public let totalBytes: Int64
+	/// .app 번들 크기 (Finder 표시 크기와 같은 기준)
+	public let appBytes: Int64
+	/// 관련 파일 합계 (설정 · 캐시 · 컨테이너 등 앱이 만든 데이터)
+	public let dataBytes: Int64
 	public let leftoverCount: Int
 	public let reasons: [String]
 	public let protectedReason: String?
 
 	public var id: String { path }
+	public var totalBytes: Int64 { appBytes + dataBytes }
 	public var sizeText: String { formatSize(totalBytes) }
+	/// 예: `앱 512 MB · 데이터 18.3 GB` | 데이터 없음: `앱 512 MB`
+	public var breakdownText: String {
+		let app = "앱 \(formatSize(appBytes))"
+		return dataBytes > 0 ? "\(app) · 데이터 \(formatSize(dataBytes))" : app
+	}
 }
 
 public struct LeftoverRow: Hashable, Identifiable {
@@ -59,7 +68,8 @@ public struct AppsPresenter {
 				AppRow(
 					path: item.app.path,
 					name: item.app.name,
-					totalBytes: item.totalBytes,
+					appBytes: item.app.sizeBytes,
+					dataBytes: item.leftoverBytes,
 					leftoverCount: item.leftovers.count,
 					reasons: item.suggestions.map { SuggestionText.describe($0, now: now) },
 					protectedReason: item.protectedReason
@@ -74,7 +84,8 @@ public struct AppsPresenter {
 	public func leftoverRows(for appPath: String) -> [LeftoverRow] {
 		guard let item = item(appPath) else { return [] }
 		let chosen = leftoverSelection[appPath] ?? []
-		return item.leftovers.map { leftover in
+		// 정렬: 크기 내림차순
+		return item.leftovers.sorted { $0.sizeBytes > $1.sizeBytes }.map { leftover in
 			LeftoverRow(
 				path: leftover.path,
 				display: HomePath.display(leftover.path, home: home),

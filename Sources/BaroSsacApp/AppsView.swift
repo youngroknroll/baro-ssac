@@ -96,7 +96,7 @@ internal struct AppsView: View {
 			FileIcon(path: row.path, size: 32)
 			TitleAndCaption(
 				title: row.name,
-				caption: row.leftoverCount > 0 ? "관련 파일 \(row.leftoverCount)개 포함" : "관련 파일 없음",
+				caption: row.breakdownText,
 				help: row.path
 			)
 			Spacer(minLength: 12)
